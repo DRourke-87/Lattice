@@ -30,6 +30,7 @@ Lattice.graph = (function () {
   let focusSet = null;
   let alertSet = new Set();
   let flattenStrength = 0; // 0 = free 3D; >0 pulls every node toward z=0
+  let ambientDrift = true; // gentle breathing in 3D; off in 2D so it settles
 
   function nodeColour(d) {
     if (focusSet && !focusSet.has(d.id)) return DIM_NODE;
@@ -43,8 +44,8 @@ Lattice.graph = (function () {
 
   function linkColour(l) {
     if (focusSet && !linkFocused(l)) return DIM_LINK;
-    const kind = { dependency: 'rgba(78,163,255,0.55)', risk: 'rgba(255,180,84,0.55)', verifies: 'rgba(95,214,139,0.35)' }[l.kind];
-    return kind || 'rgba(90,110,160,0.4)';
+    const kind = { dependency: 'rgba(96,172,255,0.9)', risk: 'rgba(255,188,100,0.9)', verifies: 'rgba(110,222,155,0.7)' }[l.kind];
+    return kind || 'rgba(140,165,210,0.75)';
   }
 
   // Re-issuing the accessors makes the library restyle existing objects.
@@ -52,7 +53,7 @@ Lattice.graph = (function () {
     graph
       .nodeColor((d) => nodeColour(d))
       .linkColor((l) => linkColour(l))
-      .linkWidth((l) => (linkFocused(l) ? 1.4 : 0.4))
+      .linkWidth((l) => (linkFocused(l) ? 3 : 1.2))
       .linkDirectionalParticles((l) => (linkFocused(l) ? 3 : focusSet ? 0 : 1));
   }
 
@@ -66,12 +67,17 @@ Lattice.graph = (function () {
       .nodeVal((d) => SIZES[d.type])
       .nodeLabel((d) => d.id + ' — ' + d.label)
       .nodeResolution(12)
-      .linkOpacity(0.45)
+      .linkOpacity(0.85)
       .linkDirectionalParticleSpeed(0.0035)
-      .linkDirectionalParticleWidth(1.4)
-      .d3AlphaMin(0) // engine never sleeps — our ambient force runs forever
+      .linkDirectionalParticleWidth(1.6)
+      .d3AlphaMin(0) // engine never sleeps — flatten/jitter forces run forever
+      // Alpha never cools. The built-in charge (repulsion) and center forces
+      // are alpha-scaled, so letting alpha decay would kill them and let the
+      // ambient pull collapse everything into one bubble. Keeping alpha at 1
+      // holds the spread and keeps the cloud centred without drifting.
+      .d3AlphaDecay(0)
       .cooldownTime(Infinity)
-      .d3VelocityDecay(0.35)
+      .d3VelocityDecay(0.4)
       .onNodeClick((d) => { if (opts.onNodeClick) opts.onNodeClick(d); })
       .graphData({ nodes: data.nodes, links: data.links });
 
@@ -84,17 +90,19 @@ Lattice.graph = (function () {
 
     refreshStyles();
 
-    // Custom force, deliberately independent of simulation alpha so it
-    // keeps acting after the layout cools: gentle random drift always,
-    // plus a pull into the z=0 plane while a query is live.
+    // Custom force, independent of simulation alpha so it keeps acting even
+    // after the built-in layout settles. In 3D it adds a faint jitter so the
+    // constellation breathes; in 2D (clarity mode) the jitter is switched off
+    // so the layout comes to rest. The z-collapse runs whenever a query is
+    // live. Centring and spread are left to the built-in center/charge forces.
     let simNodes = [];
     const ambient = () => {
       simNodes.forEach((n) => {
-        // Jitter plus a weak pull to the origin, so the cloud breathes
-        // without slowly random-walking off-centre.
-        n.vx += (Math.random() - 0.5) * 0.05 - n.x * 0.0008;
-        n.vy += (Math.random() - 0.5) * 0.05 - n.y * 0.0008;
-        n.vz += (Math.random() - 0.5) * 0.05 - n.z * 0.0008;
+        if (ambientDrift) {
+          n.vx += (Math.random() - 0.5) * 0.05;
+          n.vy += (Math.random() - 0.5) * 0.05;
+          n.vz += (Math.random() - 0.5) * 0.05;
+        }
         if (flattenStrength) n.vz -= n.z * flattenStrength;
       });
     };
@@ -145,9 +153,10 @@ Lattice.graph = (function () {
     alertSet = new Set(alertIds);
     refreshStyles();
 
-    // Collapse to the plane. The flatten force acts regardless of alpha,
-    // so no reheat is needed — z just glides to zero.
+    // Collapse to the plane and stop the breathing so the 2D layout comes to
+    // rest. The flatten force acts regardless of alpha, so z glides to zero.
     flattenStrength = 0.06;
+    ambientDrift = false;
 
     const controls = graph.controls();
     controls.autoRotate = false;
@@ -170,6 +179,7 @@ Lattice.graph = (function () {
     focusSet = null;
     alertSet = new Set();
     flattenStrength = 0;
+    ambientDrift = true; // resume 3D breathing
     refreshStyles();
     // Reheat so charge repulsion re-inflates the z axis.
     graph.d3ReheatSimulation();
