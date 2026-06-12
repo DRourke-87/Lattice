@@ -113,8 +113,6 @@ Lattice.graph = (function () {
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.55;
 
-    data.nodes.forEach((d) => { d.phase = Math.random() * Math.PI * 2; });
-
     labelEls = data.nodes.filter((d) => d.type === 'component').map((d) => {
       const el = document.createElement('span');
       el.className = 'node-label3d';
@@ -129,15 +127,8 @@ Lattice.graph = (function () {
     setTimeout(() => graph.zoomToFit(900, 70), 1800);
   }
 
-  function framePulse(t) {
+  function framePulse(_t) {
     if (graph) {
-      data.nodes.forEach((d) => {
-        const obj = d.__threeObj;
-        if (!obj) return;
-        const inFocus = focusSet && focusSet.has(d.id);
-        const amp = alertSet.has(d.id) ? 0.3 : inFocus ? 0.14 : 0.06;
-        obj.scale.setScalar(1 + amp * Math.sin(t / 280 / (alertSet.has(d.id) ? 1 : 3) + d.phase));
-      });
       labelEls.forEach(({ node, el }) => {
         if (typeof node.x !== 'number') return;
         const p = graph.graph2ScreenCoords(node.x, node.y, node.z);
