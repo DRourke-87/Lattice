@@ -23,8 +23,6 @@ Lattice.graph = (function () {
     verification: '#5fd68b',
   };
   const SIZES = { requirement: 4, component: 10, interface: 3, risk: 6, verification: 2.5 };
-  const DIM_NODE = 'rgba(110, 130, 165, 0.08)';
-  const DIM_LINK = 'rgba(58, 75, 120, 0.04)';
 
   let graph, data, container, labelLayer, labelEls;
   let focusSet = null;
@@ -32,7 +30,6 @@ Lattice.graph = (function () {
   let flattenStrength = 0; // 0 = free 3D; >0 pulls every node toward z=0
 
   function nodeColour(d) {
-    if (focusSet && !focusSet.has(d.id)) return DIM_NODE;
     if (d.type === 'risk' && d.severity === 'red') return '#ff6b5e';
     return PALETTE[d.type];
   }
@@ -42,16 +39,20 @@ Lattice.graph = (function () {
   }
 
   function linkColour(l) {
-    if (focusSet && !linkFocused(l)) return DIM_LINK;
     const kind = { dependency: 'rgba(96,172,255,0.9)', risk: 'rgba(255,188,100,0.9)', verifies: 'rgba(110,222,155,0.7)' }[l.kind];
     return kind || 'rgba(140,165,210,0.75)';
   }
 
   // Re-issuing the accessors makes the library restyle existing objects.
+  // nodeVisibility/linkVisibility hide unfocused items outright — Three.js
+  // does not honour the alpha channel in rgba() colour strings, so transparent
+  // dimming via colour alone would leave opaque ghost spheres on screen.
   function refreshStyles() {
     graph
       .nodeColor((d) => nodeColour(d))
+      .nodeVisibility((d) => !focusSet || focusSet.has(d.id))
       .linkColor((l) => linkColour(l))
+      .linkVisibility((l) => !focusSet || linkFocused(l))
       .linkWidth((l) => (linkFocused(l) ? 3 : 1.2))
       .linkDirectionalParticles((l) => (linkFocused(l) ? 3 : focusSet ? 0 : 1));
   }
@@ -98,10 +99,10 @@ Lattice.graph = (function () {
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.55;
 
-    labelEls = data.nodes.filter((d) => d.type === 'component').map((d) => {
+    labelEls = data.nodes.map((d) => {
       const el = document.createElement('span');
       el.className = 'node-label3d';
-      el.textContent = d.label;
+      el.textContent = d.label || d.id;
       labelLayer.appendChild(el);
       return { node: d, el };
     });
@@ -115,10 +116,17 @@ Lattice.graph = (function () {
   function framePulse(_t) {
     if (graph) {
       labelEls.forEach(({ node, el }) => {
-        if (typeof node.x !== 'number') return;
+        // 3D mode: only component labels; 2D/focus mode: all focused nodes.
+        const visible = focusSet
+          ? focusSet.has(node.id)
+          : node.type === 'component';
+        if (!visible || typeof node.x !== 'number') {
+          el.style.display = 'none';
+          return;
+        }
+        el.style.display = '';
         const p = graph.graph2ScreenCoords(node.x, node.y, node.z);
         el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + (p.y - 18).toFixed(1) + 'px)';
-        el.classList.toggle('dimmed', !!(focusSet && !focusSet.has(node.id)));
       });
     }
     requestAnimationFrame(framePulse);
