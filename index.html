@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LATTICE — Model-Based Acquisition (Concept Demo)</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <span class="brand-name">LATTICE</span>
+      <span class="brand-tag">Model-Based Acquisition — concept demo, fictional data</span>
+    </div>
+    <nav class="nav">
+      <button data-nav="document" class="nav-btn">1 · Document</button>
+      <button data-nav="model" class="nav-btn">2 · Model</button>
+      <button data-nav="assurance" class="nav-btn">3 · Assurance</button>
+    </nav>
+  </header>
+
+  <!-- ============ Screen 1: the static document ============ -->
+  <main id="screen-document" class="screen">
+    <div class="doc-wrap">
+      <div class="doc-page">
+        <div class="doc-header">
+          <div class="doc-classification">OFFICIAL — FICTIONAL DEMONSTRATION DATA</div>
+          <h1 class="doc-title">INVITATION TO TENDER</h1>
+          <h2 class="doc-subtitle" id="programme-name">PROJECT LATTICE</h2>
+          <p class="doc-meta" id="programme-sub"></p>
+          <p class="doc-meta">System Requirements Document · Issue 4 · Volume 2 of 7 · Pages 119–214</p>
+        </div>
+        <div id="doc-body"></div>
+      </div>
+      <div class="doc-cta">
+        <p class="doc-cta-line">Two organisations are about to interpret this document differently.</p>
+        <button id="btn-structure" class="primary-btn">Structure the document ▸</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============ Screen 2: the living model ============ -->
+  <main id="screen-model" class="screen">
+    <div class="query-bar">
+      <input id="query-input" type="text"
+             placeholder="Ask the model… e.g. “show unverified requirements linked to the radar subsystem”"
+             autocomplete="off" />
+      <button id="btn-reset" class="ghost-btn">Reset view</button>
+    </div>
+    <div id="query-chips" class="query-chips"></div>
+
+    <div class="graph-stage">
+      <svg id="graph-svg"></svg>
+      <div class="graph-legend">
+        <span><i class="dot dot-req"></i>Requirement</span>
+        <span><i class="dot dot-cmp"></i>Component</span>
+        <span><i class="dot dot-if"></i>Interface</span>
+        <span><i class="dot dot-rsk"></i>Risk</span>
+        <span><i class="dot dot-ver"></i>Verification</span>
+      </div>
+
+      <aside id="side-panel" class="side-panel">
+        <div class="panel-head">
+          <span id="panel-title"></span>
+          <button id="panel-close" class="ghost-btn">✕</button>
+        </div>
+        <div id="panel-body" class="panel-body"></div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- ============ Screen 3: assurance dashboard ============ -->
+  <main id="screen-assurance" class="screen">
+    <div class="dash-wrap">
+      <h2 class="dash-title">Assurance position — single source of truth</h2>
+      <p class="dash-sub">Computed live from the same model both parties query. Nothing here is typed in twice.</p>
+
+      <div id="kpi-tiles" class="kpi-tiles"></div>
+
+      <div class="dash-grid">
+        <section class="dash-card">
+          <h3>Verification status</h3>
+          <div id="donut" class="donut"></div>
+        </section>
+        <section class="dash-card">
+          <h3>Coverage by subsystem</h3>
+          <div id="coverage-bars" class="coverage-bars"></div>
+        </section>
+      </div>
+
+      <section class="dash-card dash-card-wide">
+        <h3>Outstanding gaps — requirements with no verification method</h3>
+        <table class="gaps-table">
+          <thead><tr><th>ID</th><th>Requirement</th><th>Allocated to</th><th>Linked risks</th></tr></thead>
+          <tbody id="gaps-body"></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+
+  <script src="vendor/d3.v7.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/queries.js"></script>
+  <script src="js/graph.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
