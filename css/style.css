@@ -227,7 +227,6 @@ body {
   margin-left: -40px; /* rough centring; exact width varies per label */
   transition: opacity .55s ease;
 }
-.node-label3d.dimmed { opacity: .05; }
 
 .graph-legend {
   position: absolute;
