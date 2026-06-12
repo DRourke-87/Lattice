@@ -30,7 +30,6 @@ Lattice.graph = (function () {
   let focusSet = null;
   let alertSet = new Set();
   let flattenStrength = 0; // 0 = free 3D; >0 pulls every node toward z=0
-  let ambientDrift = true; // gentle breathing in 3D; off in 2D so it settles
 
   function nodeColour(d) {
     if (focusSet && !focusSet.has(d.id)) return DIM_NODE;
@@ -70,12 +69,8 @@ Lattice.graph = (function () {
       .linkOpacity(0.85)
       .linkDirectionalParticleSpeed(0.0035)
       .linkDirectionalParticleWidth(1.6)
-      .d3AlphaMin(0) // engine never sleeps — flatten/jitter forces run forever
-      // Alpha never cools. The built-in charge (repulsion) and center forces
-      // are alpha-scaled, so letting alpha decay would kill them and let the
-      // ambient pull collapse everything into one bubble. Keeping alpha at 1
-      // holds the spread and keeps the cloud centred without drifting.
-      .d3AlphaDecay(0)
+      .d3AlphaMin(0)
+      .d3AlphaDecay(0) // keep simulation ticking so the flatten force can act
       .cooldownTime(Infinity)
       .d3VelocityDecay(0.4)
       .onNodeClick((d) => { if (opts.onNodeClick) opts.onNodeClick(d); })
@@ -90,24 +85,14 @@ Lattice.graph = (function () {
 
     refreshStyles();
 
-    // Custom force, independent of simulation alpha so it keeps acting even
-    // after the built-in layout settles. In 3D it adds a faint jitter so the
-    // constellation breathes; in 2D (clarity mode) the jitter is switched off
-    // so the layout comes to rest. The z-collapse runs whenever a query is
-    // live. Centring and spread are left to the built-in center/charge forces.
+    // z-collapse force: drags every node toward z=0 when flattenStrength > 0
+    // (during clarity/2D mode). Has no effect in 3D (flattenStrength === 0).
     let simNodes = [];
-    const ambient = () => {
-      simNodes.forEach((n) => {
-        if (ambientDrift) {
-          n.vx += (Math.random() - 0.5) * 0.05;
-          n.vy += (Math.random() - 0.5) * 0.05;
-          n.vz += (Math.random() - 0.5) * 0.05;
-        }
-        if (flattenStrength) n.vz -= n.z * flattenStrength;
-      });
+    const flattenForce = () => {
+      if (flattenStrength) simNodes.forEach((n) => { n.vz -= n.z * flattenStrength; });
     };
-    ambient.initialize = (ns) => { simNodes = ns; };
-    graph.d3Force('ambient', ambient);
+    flattenForce.initialize = (ns) => { simNodes = ns; };
+    graph.d3Force('flatten', flattenForce);
 
     const controls = graph.controls();
     controls.autoRotate = true;
@@ -144,17 +129,18 @@ Lattice.graph = (function () {
     alertSet = new Set(alertIds);
     refreshStyles();
 
-    // Collapse to the plane and stop the breathing so the 2D layout comes to
-    // rest. The flatten force acts regardless of alpha, so z glides to zero.
     flattenStrength = 0.06;
-    ambientDrift = false;
 
     const controls = graph.controls();
     controls.autoRotate = false;
     controls.enableRotate = false; // pan/zoom only while in clarity mode
 
-    // Give the flatten a moment to begin, then fly face-on to the cluster.
+    // After the z-collapse settles, pin every node in place (fx/fy/fz) so the
+    // layout is fully static, then fly the camera face-on to the cluster.
     setTimeout(() => {
+      flattenStrength = 0;
+      data.nodes.forEach((n) => { n.fx = n.x; n.fy = n.y; n.fz = 0; });
+
       const pts = data.nodes.filter((d) => focusSet.has(d.id) && typeof d.x === 'number');
       if (!pts.length) return;
       const xs = pts.map((d) => d.x), ys = pts.map((d) => d.y);
@@ -163,16 +149,16 @@ Lattice.graph = (function () {
       const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 120);
       const dist = (extent / 2) / Math.tan((graph.camera().fov / 2) * Math.PI / 180) * 1.45;
       graph.cameraPosition({ x: cx, y: cy, z: dist }, { x: cx, y: cy, z: 0 }, 1400);
-    }, 500);
+    }, 900);
   }
 
   function clearFocus() {
     focusSet = null;
     alertSet = new Set();
     flattenStrength = 0;
-    ambientDrift = true; // resume 3D breathing
+    // Unpin nodes so the 3D layout can re-spread.
+    data.nodes.forEach((n) => { n.fx = undefined; n.fy = undefined; n.fz = undefined; });
     refreshStyles();
-    // Reheat so charge repulsion re-inflates the z axis.
     graph.d3ReheatSimulation();
 
     const controls = graph.controls();
