@@ -103,6 +103,20 @@ body {
 }
 .doc-ref { font-weight: 700; color: #1c3f6e; }
 
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 10px 0 22px;
+}
+.doc-table th, .doc-table td {
+  border: 1px solid #b9b4a6;
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.doc-table th { background: #e7e3d8; font-weight: 700; }
+
 /* dissolve transition: paragraphs scatter and blur out */
 .doc-header, #doc-body > * { transition: opacity .6s ease, transform .6s ease, filter .6s ease; }
 .dissolve {
