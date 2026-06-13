@@ -94,7 +94,7 @@
   function startGraph() {
     if (graphStarted) return;
     graphStarted = true;
-    Lattice.graph.init('#graph-3d', data, { onNodeClick: showNodeCard });
+    Lattice.graph.init('#graph-svg', data, { onNodeClick: showNodeCard });
   }
 
   const panel = document.getElementById('side-panel');

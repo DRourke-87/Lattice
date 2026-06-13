@@ -205,28 +205,62 @@ body {
 .query-chip:hover { color: var(--text); border-color: var(--blue); }
 
 .graph-stage { flex: 1 1 auto; position: relative; min-height: 0; }
-#graph-3d { width: 100%; height: 100%; position: relative; }
-#graph-3d canvas { display: block; }
+#graph-svg { width: 100%; height: 100%; display: block; cursor: grab; }
+#graph-svg:active { cursor: grabbing; }
 
-/* HTML overlay labels for component nodes, projected from 3D each frame */
-.label-layer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 2;
+/* --- nodes & links: the living feel --- */
+
+.node {
+  stroke: rgba(255, 255, 255, .25);
+  stroke-width: 1;
+  transition: opacity .55s ease;
+  cursor: pointer;
 }
-.node-label3d {
-  position: absolute;
-  top: 0;
-  left: 0;
-  color: var(--text-dim);
+.node-requirement  { filter: drop-shadow(0 0 6px rgba(78, 163, 255, .55)); }
+.node-component    { filter: drop-shadow(0 0 8px rgba(154, 167, 184, .4)); }
+.node-interface    { filter: drop-shadow(0 0 5px rgba(86, 207, 214, .5)); }
+.node-risk         { filter: drop-shadow(0 0 8px rgba(255, 180, 84, .6)); }
+.node-verification { filter: drop-shadow(0 0 4px rgba(95, 214, 139, .5)); }
+
+.node.dimmed { opacity: .07; }
+.node.focused {
+  stroke: #fff;
+  stroke-width: 1.6;
+}
+.node.alert {
+  filter: drop-shadow(0 0 14px rgba(255, 107, 94, .95));
+  animation: alert-throb 1.1s ease-in-out infinite;
+}
+@keyframes alert-throb {
+  0%, 100% { stroke: rgba(255, 255, 255, .4); }
+  50% { stroke: #ff6b5e; stroke-width: 3; }
+}
+
+.link {
+  stroke: #3a4b78;
+  stroke-opacity: .35;
+  stroke-width: 1;
+  stroke-dasharray: 4 7;
+  animation: flow 1.6s linear infinite;
+  transition: stroke-opacity .55s ease;
+}
+@keyframes flow { to { stroke-dashoffset: -11; } }
+
+.link-dependency { stroke: var(--blue); }
+.link-risk { stroke: var(--amber); }
+.link-verifies { stroke: var(--green); stroke-opacity: .25; }
+
+.link.dimmed { stroke-opacity: .03; }
+.link.focused { stroke-opacity: .9; stroke-width: 1.6; animation-duration: .8s; }
+
+.node-label {
+  fill: var(--text-dim);
   font-size: 11px;
-  white-space: nowrap;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, .9);
-  margin-left: -40px; /* rough centring; exact width varies per label */
+  text-anchor: middle;
+  pointer-events: none;
   transition: opacity .55s ease;
 }
+.node-label.dimmed { opacity: .06; }
 
 .graph-legend {
   position: absolute;
