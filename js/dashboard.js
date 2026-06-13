@@ -28,9 +28,9 @@ Lattice.dashboard = (function () {
 
   function donut(el, byStatus, total) {
     const segs = [
-      { key: 'Verified', n: byStatus.verified.length, colour: '#5fd68b' },
-      { key: 'Planned', n: byStatus.planned.length, colour: '#4ea3ff' },
-      { key: 'No method', n: byStatus.none.length, colour: '#ff6b5e' },
+      { key: 'Verified', n: byStatus.verified.length, colour: '#2e9e4f' },
+      { key: 'Planned', n: byStatus.planned.length, colour: '#0090dc' },
+      { key: 'No method', n: byStatus.none.length, colour: '#c0392b' },
     ];
     const size = 180, r = 70, thickness = 22, cx = size / 2, cy = size / 2;
     let angle = -Math.PI / 2;

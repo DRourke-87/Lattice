@@ -1,189 +1,174 @@
 /*
- * The living graph — 3D constellation while browsing, flattening into a
- * 2D plane when a query runs (clarity mode), re-inflating on reset.
+ * The living graph — D3 force simulation with continuous ambient motion.
  *
- * One renderer (3d-force-graph / three.js) drives both modes: "2D" is the
- * same simulation with a z-collapsing force and a face-on camera, so the
- * transition is a continuous morph rather than a renderer swap.
- *
- * Public API (unchanged from the SVG version):
- *   Lattice.graph.init(selector, data, { onNodeClick })
- *   Lattice.graph.focus(nodeIds, alertIds)
+ * Public API:
+ *   Lattice.graph.init(svgSelector, data, { onNodeClick })
+ *   Lattice.graph.focus(nodeIds, alertIds)   — dim everything else, zoom to set
  *   Lattice.graph.clearFocus()
- *   Lattice.graph.wake()
+ *   Lattice.graph.wake()                     — burst of energy (used on reveal)
  */
 window.Lattice = window.Lattice || {};
 
 Lattice.graph = (function () {
   const PALETTE = {
-    requirement: '#4ea3ff',
-    component: '#9aa7b8',
-    interface: '#56cfd6',
-    risk: '#ffb454',
-    verification: '#5fd68b',
+    requirement: '#0090dc',
+    component: '#1e4479',
+    interface: '#1b9aaa',
+    risk: '#d55c17',
+    verification: '#2e9e4f',
   };
-  const SIZES = { requirement: 4, component: 10, interface: 3, risk: 6, verification: 2.5 };
+  const RADII = {
+    requirement: 6, component: 13, interface: 5, risk: 8, verification: 4.5,
+  };
 
-  let graph, data, container, labelLayer, labelEls;
+  let svg, zoomLayer, linkSel, nodeSel, labelSel, sim, zoomBehaviour;
+  let data, width, height;
   let focusSet = null;
-  let alertSet = new Set();
-  let flattenStrength = 0; // 0 = free 3D; >0 pulls every node toward z=0
 
   function nodeColour(d) {
-    if (d.type === 'risk' && d.severity === 'red') return '#ff6b5e';
+    if (d.type === 'risk' && d.severity === 'red') return '#c0392b';
     return PALETTE[d.type];
-  }
-
-  function linkFocused(l) {
-    return focusSet && focusSet.has(l.source.id) && focusSet.has(l.target.id);
-  }
-
-  function linkColour(l) {
-    const kind = { dependency: 'rgba(96,172,255,0.9)', risk: 'rgba(255,188,100,0.9)', verifies: 'rgba(110,222,155,0.7)' }[l.kind];
-    return kind || 'rgba(140,165,210,0.75)';
-  }
-
-  // Re-issuing the accessors makes the library restyle existing objects.
-  // nodeVisibility/linkVisibility hide unfocused items outright — Three.js
-  // does not honour the alpha channel in rgba() colour strings, so transparent
-  // dimming via colour alone would leave opaque ghost spheres on screen.
-  function refreshStyles() {
-    graph
-      .nodeColor((d) => nodeColour(d))
-      .nodeVisibility((d) => !focusSet || focusSet.has(d.id))
-      .linkColor((l) => linkColour(l))
-      .linkVisibility((l) => !focusSet || linkFocused(l))
-      .linkWidth((l) => (linkFocused(l) ? 3 : 1.2))
-      .linkDirectionalParticles((l) => (linkFocused(l) ? 3 : focusSet ? 0 : 1));
   }
 
   function init(selector, latticeData, opts = {}) {
     data = latticeData;
-    container = document.querySelector(selector);
+    svg = d3.select(selector);
+    const rect = svg.node().getBoundingClientRect();
+    width = rect.width || 1200;
+    height = rect.height || 760;
+    svg.attr('viewBox', [0, 0, width, height]);
 
-    graph = ForceGraph3D({ controlType: 'orbit' })(container)
-      .backgroundColor('rgba(0,0,0,0)')
-      .showNavInfo(false)
-      .nodeVal((d) => SIZES[d.type])
-      .nodeLabel((d) => d.id + ' — ' + d.label)
-      .nodeResolution(12)
-      .linkOpacity(0.85)
-      .linkDirectionalParticleSpeed(0.0035)
-      .linkDirectionalParticleWidth(1.6)
-      .d3AlphaMin(0)
-      .d3AlphaDecay(0) // keep simulation ticking so the flatten force can act
-      .cooldownTime(Infinity)
-      .d3VelocityDecay(0.4)
-      .onNodeClick((d) => { if (opts.onNodeClick) opts.onNodeClick(d); })
-      .graphData({ nodes: data.nodes, links: data.links });
+    zoomLayer = svg.append('g').attr('class', 'zoom-layer');
 
-    // HTML overlay for the ten component labels — crisper than 3D text,
-    // repositioned every frame via graph2ScreenCoords. Must be appended
-    // after the graph instantiates: the library clears the container.
-    labelLayer = document.createElement('div');
-    labelLayer.className = 'label-layer';
-    container.appendChild(labelLayer);
+    zoomBehaviour = d3.zoom()
+      .scaleExtent([0.35, 4])
+      .on('zoom', (event) => zoomLayer.attr('transform', event.transform));
+    svg.call(zoomBehaviour).on('dblclick.zoom', null);
 
-    refreshStyles();
+    linkSel = zoomLayer.append('g').attr('class', 'links')
+      .selectAll('line')
+      .data(data.links)
+      .join('line')
+      .attr('class', (d) => 'link link-' + d.kind);
 
-    // z-collapse force: drags every node toward z=0 when flattenStrength > 0
-    // (during clarity/2D mode). Has no effect in 3D (flattenStrength === 0).
-    let simNodes = [];
-    const flattenForce = () => {
-      if (flattenStrength) simNodes.forEach((n) => { n.vz -= n.z * flattenStrength; });
-    };
-    flattenForce.initialize = (ns) => { simNodes = ns; };
-    graph.d3Force('flatten', flattenForce);
+    nodeSel = zoomLayer.append('g').attr('class', 'nodes')
+      .selectAll('circle')
+      .data(data.nodes)
+      .join('circle')
+      .attr('class', (d) => 'node node-' + d.type)
+      .attr('r', (d) => RADII[d.type])
+      .attr('fill', nodeColour)
+      .call(drag())
+      .on('click', (event, d) => {
+        event.stopPropagation();
+        if (opts.onNodeClick) opts.onNodeClick(d);
+      });
 
-    const controls = graph.controls();
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.55;
+    nodeSel.append('title').text((d) => d.id + ' — ' + d.label);
 
-    labelEls = data.nodes.map((d) => {
-      const el = document.createElement('span');
-      el.className = 'node-label3d';
-      el.textContent = d.label || d.id;
-      labelLayer.appendChild(el);
-      return { node: d, el };
-    });
+    // Labels only for components: enough to orient, not enough to clutter.
+    labelSel = zoomLayer.append('g').attr('class', 'labels')
+      .selectAll('text')
+      .data(data.nodes.filter((d) => d.type === 'component'))
+      .join('text')
+      .attr('class', 'node-label')
+      .text((d) => d.label);
 
-    requestAnimationFrame(framePulse);
+    // Per-node pulse phase, so the constellation shimmers out of sync.
+    data.nodes.forEach((d) => { d.phase = Math.random() * Math.PI * 2; });
 
-    // Frame the whole constellation once the layout has spread out.
-    setTimeout(() => graph.zoomToFit(900, 70), 1800);
+    sim = d3.forceSimulation(data.nodes)
+      .force('link', d3.forceLink(data.links).id((d) => d.id)
+        .distance((l) => (l.kind === 'verifies' ? 28 : l.kind === 'interface' ? 60 : 48))
+        .strength(0.35))
+      .force('charge', d3.forceManyBody().strength(-95))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collide', d3.forceCollide().radius((d) => RADII[d.type] + 4))
+      .force('x', d3.forceX(width / 2).strength(0.035))
+      .force('y', d3.forceY(height / 2).strength(0.045))
+      .alphaMin(0.0005)
+      .alphaTarget(0.012) // never quite settles — the "breathing" baseline
+      .on('tick', tick);
+
+    requestAnimationFrame(pulse);
   }
 
-  function framePulse(_t) {
-    if (graph) {
-      labelEls.forEach(({ node, el }) => {
-        // 3D mode: only component labels; 2D/focus mode: all focused nodes.
-        const visible = focusSet
-          ? focusSet.has(node.id)
-          : node.type === 'component';
-        if (!visible || typeof node.x !== 'number') {
-          el.style.display = 'none';
-          return;
-        }
-        el.style.display = '';
-        const p = graph.graph2ScreenCoords(node.x, node.y, node.z);
-        el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + (p.y - 18).toFixed(1) + 'px)';
+  function tick() {
+    // Tiny random nudges keep the lattice drifting like a slow current.
+    data.nodes.forEach((d) => {
+      d.vx += (Math.random() - 0.5) * 0.06;
+      d.vy += (Math.random() - 0.5) * 0.06;
+    });
+    linkSel
+      .attr('x1', (d) => d.source.x).attr('y1', (d) => d.source.y)
+      .attr('x2', (d) => d.target.x).attr('y2', (d) => d.target.y);
+    nodeSel.attr('cx', (d) => d.x).attr('cy', (d) => d.y);
+    labelSel.attr('x', (d) => d.x).attr('y', (d) => d.y - RADII.component - 6);
+  }
+
+  function pulse(t) {
+    // Gentle sine pulse on radius; focused nodes pulse harder.
+    nodeSel.attr('r', (d) => {
+      const base = RADII[d.type];
+      const amp = focusSet && focusSet.has(d.id) ? 0.18 : 0.07;
+      return base * (1 + amp * Math.sin(t / 900 + d.phase));
+    });
+    requestAnimationFrame(pulse);
+  }
+
+  function drag() {
+    return d3.drag()
+      .on('start', (event, d) => {
+        if (!event.active) sim.alphaTarget(0.25).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
+      .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+      .on('end', (event, d) => {
+        if (!event.active) sim.alphaTarget(0.012);
+        d.fx = null; d.fy = null;
       });
-    }
-    requestAnimationFrame(framePulse);
   }
 
   function focus(nodeIds, alertIds = []) {
     focusSet = new Set(nodeIds);
-    alertSet = new Set(alertIds);
-    refreshStyles();
+    const alerts = new Set(alertIds);
 
-    flattenStrength = 0.06;
+    nodeSel
+      .classed('dimmed', (d) => !focusSet.has(d.id))
+      .classed('focused', (d) => focusSet.has(d.id))
+      .classed('alert', (d) => alerts.has(d.id));
+    linkSel
+      .classed('dimmed', (d) => !(focusSet.has(d.source.id) && focusSet.has(d.target.id)))
+      .classed('focused', (d) => focusSet.has(d.source.id) && focusSet.has(d.target.id));
+    labelSel.classed('dimmed', (d) => !focusSet.has(d.id));
 
-    const controls = graph.controls();
-    controls.autoRotate = false;
-    controls.enableRotate = false; // pan/zoom only while in clarity mode
+    zoomToSet(focusSet);
+  }
 
-    // After the z-collapse settles, pin every node in place (fx/fy/fz) so the
-    // layout is fully static, then fly the camera face-on to the cluster.
-    setTimeout(() => {
-      flattenStrength = 0;
-      data.nodes.forEach((n) => { n.fx = n.x; n.fy = n.y; n.fz = 0; });
-
-      const pts = data.nodes.filter((d) => focusSet.has(d.id) && typeof d.x === 'number');
-      if (!pts.length) return;
-      const xs = pts.map((d) => d.x), ys = pts.map((d) => d.y);
-      const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-      const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-      const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 120);
-      const dist = (extent / 2) / Math.tan((graph.camera().fov / 2) * Math.PI / 180) * 1.45;
-      graph.cameraPosition({ x: cx, y: cy, z: dist }, { x: cx, y: cy, z: 0 }, 1400);
-    }, 900);
+  function zoomToSet(set) {
+    const pts = data.nodes.filter((d) => set.has(d.id));
+    if (!pts.length) return;
+    const x0 = d3.min(pts, (d) => d.x), x1 = d3.max(pts, (d) => d.x);
+    const y0 = d3.min(pts, (d) => d.y), y1 = d3.max(pts, (d) => d.y);
+    const dx = Math.max(x1 - x0, 60), dy = Math.max(y1 - y0, 60);
+    const scale = Math.min(2.2, 0.75 / Math.max(dx / width, dy / height));
+    const tx = width / 2 - scale * (x0 + x1) / 2;
+    const ty = height / 2 - scale * (y0 + y1) / 2;
+    svg.transition().duration(850).ease(d3.easeCubicInOut)
+      .call(zoomBehaviour.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
   }
 
   function clearFocus() {
     focusSet = null;
-    alertSet = new Set();
-    flattenStrength = 0;
-    // Unpin nodes so the 3D layout can re-spread.
-    data.nodes.forEach((n) => { n.fx = undefined; n.fy = undefined; n.fz = undefined; });
-    refreshStyles();
-    graph.d3ReheatSimulation();
-
-    const controls = graph.controls();
-    controls.autoRotate = true;
-    controls.enableRotate = true;
-    graph.zoomToFit(1300, 70);
+    nodeSel.classed('dimmed', false).classed('focused', false).classed('alert', false);
+    linkSel.classed('dimmed', false).classed('focused', false);
+    labelSel.classed('dimmed', false);
+    svg.transition().duration(850).ease(d3.easeCubicInOut)
+      .call(zoomBehaviour.transform, d3.zoomIdentity);
   }
 
   function wake() {
-    // No reheat needed: a freshly initialised layout is already at full
-    // energy (and reheating mid-digest crashes the engine). Just do the
-    // reveal flourish: start pulled back, then drift in.
-    if (graph) {
-      const cam = graph.cameraPosition();
-      graph.cameraPosition({ x: cam.x * 2.2, y: cam.y * 2.2, z: cam.z * 2.2 });
-      setTimeout(() => graph.zoomToFit(1600, 70), 700);
-    }
+    if (sim) sim.alpha(0.9).restart();
   }
 
   return { init, focus, clearFocus, wake };
