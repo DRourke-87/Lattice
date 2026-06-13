@@ -411,3 +411,67 @@ body {
 }
 .gaps-table td { padding: 9px 10px; border-bottom: 1px solid rgba(35, 48, 82, .5); }
 .muted { color: var(--text-dim); }
+
+/* ============================================================
+   Mobile / narrow viewports.
+   Purely additive — these rules are inert above 760px, so the
+   desktop render is unchanged. Goal: keep every screen usable
+   and tappable on a phone an interviewer might pull out.
+   ============================================================ */
+
+@media (max-width: 760px) {
+  /* Use the dynamic viewport unit so mobile browser chrome
+     (address bar) doesn't clip the bottom of a screen. */
+  html, body { height: 100dvh; }
+
+  /* Top bar: let the nav drop to its own full-width row and
+     spread evenly, instead of overflowing beside the brand. */
+  .topbar { flex-wrap: wrap; gap: 8px; padding: 9px 14px; }
+  .brand { gap: 8px; flex: 1 1 auto; min-width: 0; }
+  .brand-tag { display: none; }              /* long tagline: noise on a phone */
+  .nav { width: 100%; gap: 6px; }
+  .nav-btn { flex: 1 1 0; text-align: center; padding: 9px 6px; font-size: 12px; }
+
+  /* Document screen: the "paper" needs breathing room, not a4 margins. */
+  .doc-wrap { width: 94vw; padding: 18px 0 90px; }
+  .doc-page { padding: 30px 22px; }
+  .doc-title { font-size: 21px; letter-spacing: 2px; }
+  .doc-subtitle { font-size: 15px; }
+  .doc-table { font-size: 11px; }
+  .doc-table th, .doc-table td { padding: 5px 7px; }
+  .doc-cta { bottom: 14px; }
+
+  /* Model screen: tighten the query controls, stack chips. */
+  .query-bar { padding: 10px 14px 4px; }
+  #query-input { font-size: 16px; }          /* 16px stops iOS zoom-on-focus */
+  .query-chips { padding: 6px 14px 8px; }
+
+  /* Graph: keep it from collapsing, shrink the legend, and let
+     the side panel cover the full width so cards are readable. */
+  .graph-stage { min-height: 60dvh; }
+  .graph-legend {
+    left: 10px; right: 10px; bottom: 10px;
+    gap: 8px 12px; flex-wrap: wrap; justify-content: center;
+    font-size: 11px; padding: 7px 10px;
+  }
+  .side-panel { width: 100%; max-width: 100%; border-left: none; }
+
+  /* Dashboard: collapse the multi-column grids to a single column
+     and let the wide table scroll horizontally instead of clipping. */
+  .dash-wrap { width: 94vw; padding: 22px 0 48px; }
+  .dash-title { font-size: 18px; }
+  .kpi-tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi { padding: 14px 16px; }
+  .kpi-value { font-size: 24px; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-card { padding: 16px 16px; }
+  .donut { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .dash-card-wide { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .gaps-table { min-width: 480px; }          /* preserve columns; container scrolls */
+}
+
+/* Very small phones: one KPI per row reads better than a cramped 2-up. */
+@media (max-width: 420px) {
+  .kpi-tiles { grid-template-columns: 1fr; }
+  .nav-btn { font-size: 11px; padding: 8px 4px; }
+}
