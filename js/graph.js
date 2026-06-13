@@ -11,11 +11,11 @@ window.Lattice = window.Lattice || {};
 
 Lattice.graph = (function () {
   const PALETTE = {
-    requirement: '#4ea3ff',
-    component: '#9aa7b8',
-    interface: '#56cfd6',
-    risk: '#ffb454',
-    verification: '#5fd68b',
+    requirement: '#0090dc',
+    component: '#1e4479',
+    interface: '#1b9aaa',
+    risk: '#d55c17',
+    verification: '#2e9e4f',
   };
   const RADII = {
     requirement: 6, component: 13, interface: 5, risk: 8, verification: 4.5,
@@ -26,7 +26,7 @@ Lattice.graph = (function () {
   let focusSet = null;
 
   function nodeColour(d) {
-    if (d.type === 'risk' && d.severity === 'red') return '#ff6b5e';
+    if (d.type === 'risk' && d.severity === 'red') return '#c0392b';
     return PALETTE[d.type];
   }
 
