@@ -1,37 +1,71 @@
 /*
  * The living graph — D3 force simulation with continuous ambient motion.
  *
+ * Deliberately domain-agnostic: everything dataset-specific (colour, size,
+ * shape, labelling, motion, force tuning) arrives as a `schema` at init.
+ * The acquisition model and the 90-day plan model are two schemas over this
+ * one engine — same code, different data model. That is the reuse argument,
+ * made in the source rather than on a slide.
+ *
  * Public API:
- *   Lattice.graph.init(svgSelector, data, { onNodeClick })
+ *   Lattice.graph.init(svgSelector, data, { schema, onNodeClick, onNodeDblClick })
  *   Lattice.graph.focus(nodeIds, alertIds)   — dim everything else, zoom to set
  *   Lattice.graph.clearFocus()
+ *   Lattice.graph.refresh()                  — re-read node state (status, colour)
  *   Lattice.graph.wake()                     — burst of energy (used on reveal)
  */
 window.Lattice = window.Lattice || {};
 
 Lattice.graph = (function () {
-  const PALETTE = {
-    requirement: '#0090dc',
-    component: '#1e4479',
-    interface: '#1b9aaa',
-    risk: '#d55c17',
-    verification: '#2e9e4f',
+  const SYMBOLS = {
+    circle: d3.symbolCircle,
+    square: d3.symbolSquare,
+    diamond: d3.symbolDiamond,
+    triangle: d3.symbolTriangle,
+    star: d3.symbolStar,
+    wye: d3.symbolWye,
   };
-  const RADII = {
-    requirement: 6, component: 13, interface: 5, risk: 8, verification: 4.5,
+
+  // Defaults reproduce the original acquisition tuning exactly, so a schema
+  // only has to declare what it actually differs on.
+  const DEFAULTS = {
+    colour: () => '#0090dc',
+    radius: () => 6,
+    symbol: () => 'circle',
+    showLabel: () => false,
+    labelOnFocus: false,      // render a label for every node, reveal on focus
+    statusClass: null,        // d => status string, applied as .st-<status>
+    statusClasses: [],        // the full set, so refresh() can clear stale ones
+    motion: () => ({ amp: 0.07, period: 900 }),
+    linkDistance: () => 48,
+    linkStrength: 0.35,
+    charge: -95,
+    collidePad: 4,
+    gravity: { x: 0.035, y: 0.045 },
+    focusBoost: 2.5,
   };
 
   let svg, zoomLayer, linkSel, nodeSel, labelSel, sim, zoomBehaviour;
-  let data, width, height;
+  let data, schema, width, height;
   let focusSet = null;
 
-  function nodeColour(d) {
-    if (d.type === 'risk' && d.severity === 'red') return '#c0392b';
-    return PALETTE[d.type];
+  function pathFor(d) {
+    const r = schema.radius(d);
+    const type = SYMBOLS[schema.symbol(d)] || d3.symbolCircle;
+    // d3 symbol size is an area; πr² makes a circle exactly radius r, and
+    // keeps every other shape visually weighted the same as that circle.
+    return d3.symbol().type(type).size(Math.PI * r * r)();
+  }
+
+  function nodeClass(d) {
+    let cls = 'node node-' + d.type;
+    if (schema.statusClass) cls += ' st-' + schema.statusClass(d);
+    return cls;
   }
 
   function init(selector, latticeData, opts = {}) {
     data = latticeData;
+    schema = Object.assign({}, DEFAULTS, opts.schema || {});
     svg = d3.select(selector);
     const rect = svg.node().getBoundingClientRect();
     width = rect.width || 1200;
@@ -52,45 +86,55 @@ Lattice.graph = (function () {
       .attr('class', (d) => 'link link-' + d.kind);
 
     nodeSel = zoomLayer.append('g').attr('class', 'nodes')
-      .selectAll('circle')
+      .selectAll('path')
       .data(data.nodes)
-      .join('circle')
-      .attr('class', (d) => 'node node-' + d.type)
-      .attr('r', (d) => RADII[d.type])
-      .attr('fill', nodeColour)
+      .join('path')
+      .attr('class', nodeClass)
+      .attr('d', pathFor)
+      .attr('fill', (d) => schema.colour(d))
       .call(drag())
       .on('click', (event, d) => {
         event.stopPropagation();
         if (opts.onNodeClick) opts.onNodeClick(d);
+      })
+      .on('dblclick', (event, d) => {
+        event.stopPropagation();
+        if (opts.onNodeDblClick) opts.onNodeDblClick(d);
       });
 
     nodeSel.append('title').text((d) => d.id + ' — ' + d.label);
 
-    // Labels only for components: enough to orient, not enough to clutter.
+    // Labels: always-on for the orienting node types; optionally rendered for
+    // everything else and revealed only when a query focuses them.
+    const labelled = schema.labelOnFocus
+      ? data.nodes
+      : data.nodes.filter((d) => schema.showLabel(d));
     labelSel = zoomLayer.append('g').attr('class', 'labels')
       .selectAll('text')
-      .data(data.nodes.filter((d) => d.type === 'component'))
+      .data(labelled)
       .join('text')
-      .attr('class', 'node-label')
+      .attr('class', (d) => 'node-label' + (schema.showLabel(d) ? ' label-always' : ''))
       .text((d) => d.label);
 
-    // Per-node pulse phase, so the constellation shimmers out of sync.
-    data.nodes.forEach((d) => { d.phase = Math.random() * Math.PI * 2; });
+    // Per-node pulse offset, so the constellation shimmers out of sync.
+    // Namespaced: the engine must not collide with a dataset's own fields
+    // (the plan model, for instance, gives every action a `phase`).
+    data.nodes.forEach((d) => { d.__pulse = Math.random() * Math.PI * 2; });
 
     sim = d3.forceSimulation(data.nodes)
       .force('link', d3.forceLink(data.links).id((d) => d.id)
-        .distance((l) => (l.kind === 'verifies' ? 28 : l.kind === 'interface' ? 60 : 48))
-        .strength(0.35))
-      .force('charge', d3.forceManyBody().strength(-95))
+        .distance((l) => schema.linkDistance(l))
+        .strength(schema.linkStrength))
+      .force('charge', d3.forceManyBody().strength(schema.charge))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collide', d3.forceCollide().radius((d) => RADII[d.type] + 4))
-      .force('x', d3.forceX(width / 2).strength(0.035))
-      .force('y', d3.forceY(height / 2).strength(0.045))
+      .force('collide', d3.forceCollide().radius((d) => schema.radius(d) + schema.collidePad))
+      .force('x', d3.forceX(width / 2).strength(schema.gravity.x))
+      .force('y', d3.forceY(height / 2).strength(schema.gravity.y))
       .alphaMin(0.0005)
       .alphaTarget(0.012) // never quite settles — the "breathing" baseline
       .on('tick', tick);
 
-    requestAnimationFrame(pulse);
+    requestAnimationFrame(paint);
   }
 
   function tick() {
@@ -102,18 +146,20 @@ Lattice.graph = (function () {
     linkSel
       .attr('x1', (d) => d.source.x).attr('y1', (d) => d.source.y)
       .attr('x2', (d) => d.target.x).attr('y2', (d) => d.target.y);
-    nodeSel.attr('cx', (d) => d.x).attr('cy', (d) => d.y);
-    labelSel.attr('x', (d) => d.x).attr('y', (d) => d.y - RADII.component - 6);
+    labelSel.attr('x', (d) => d.x).attr('y', (d) => d.y - schema.radius(d) - 6);
   }
 
-  function pulse(t) {
-    // Gentle sine pulse on radius; focused nodes pulse harder.
-    nodeSel.attr('r', (d) => {
-      const base = RADII[d.type];
-      const amp = focusSet && focusSet.has(d.id) ? 0.18 : 0.07;
-      return base * (1 + amp * Math.sin(t / 900 + d.phase));
+  function paint(t) {
+    // Position and pulse in one transform. Motion is read from the schema on
+    // every frame, so a node whose status changes mid-demo starts breathing
+    // differently the instant it is changed — no re-render needed.
+    nodeSel.attr('transform', (d) => {
+      const m = schema.motion(d) || { amp: 0, period: 900 };
+      const amp = m.amp * (focusSet && focusSet.has(d.id) ? schema.focusBoost : 1);
+      const s = amp ? 1 + amp * Math.sin(t / m.period + d.__pulse) : 1;
+      return 'translate(' + d.x + ',' + d.y + ') scale(' + s.toFixed(3) + ')';
     });
-    requestAnimationFrame(pulse);
+    requestAnimationFrame(paint);
   }
 
   function drag() {
@@ -129,6 +175,18 @@ Lattice.graph = (function () {
       });
   }
 
+  // Re-read mutable node state (status, and anything colour depends on).
+  // Focus/dim classes are set with classed() so they survive this.
+  function refresh() {
+    if (!nodeSel) return;
+    nodeSel.attr('fill', (d) => schema.colour(d));
+    if (schema.statusClass) {
+      schema.statusClasses.forEach((s) => {
+        nodeSel.classed('st-' + s, (d) => schema.statusClass(d) === s);
+      });
+    }
+  }
+
   function focus(nodeIds, alertIds = []) {
     focusSet = new Set(nodeIds);
     const alerts = new Set(alertIds);
@@ -140,7 +198,9 @@ Lattice.graph = (function () {
     linkSel
       .classed('dimmed', (d) => !(focusSet.has(d.source.id) && focusSet.has(d.target.id)))
       .classed('focused', (d) => focusSet.has(d.source.id) && focusSet.has(d.target.id));
-    labelSel.classed('dimmed', (d) => !focusSet.has(d.id));
+    labelSel
+      .classed('dimmed', (d) => !focusSet.has(d.id))
+      .classed('focused', (d) => focusSet.has(d.id));
 
     zoomToSet(focusSet);
   }
@@ -162,7 +222,7 @@ Lattice.graph = (function () {
     focusSet = null;
     nodeSel.classed('dimmed', false).classed('focused', false).classed('alert', false);
     linkSel.classed('dimmed', false).classed('focused', false);
-    labelSel.classed('dimmed', false);
+    labelSel.classed('dimmed', false).classed('focused', false);
     svg.transition().duration(850).ease(d3.easeCubicInOut)
       .call(zoomBehaviour.transform, d3.zoomIdentity);
   }
@@ -171,5 +231,5 @@ Lattice.graph = (function () {
     if (sim) sim.alpha(0.9).restart();
   }
 
-  return { init, focus, clearFocus, wake };
+  return { init, focus, clearFocus, refresh, wake };
 })();
