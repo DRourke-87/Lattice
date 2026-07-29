@@ -436,13 +436,11 @@ body {
 .nav-link { text-decoration: none; display: inline-flex; align-items: center; }
 .nav-link:hover { color: var(--navy); border-color: var(--line); }
 
-/* --- phase palette, carried straight over from the deck --- */
-:root {
-  --ph-navy: #1e4479;
-  --ph-teal: #1b9aaa;
-  --ph-amber: #d55c17;
-  --gold: #c98a0e;
-}
+/* Phase colours are data, not CSS — they come from the plan itself
+   (js/plan-data.js) and are applied inline, so re-colouring a phase in the
+   deck means editing one hex in one place. Only the gold used for quick
+   wins lives here, since it belongs to the node type rather than a phase. */
+:root { --gold: #b47b0a; }
 
 /* ---------------- Screen 1: the plan on a slide ---------------- */
 
@@ -469,11 +467,7 @@ body {
   padding: 20px 22px 22px;
   box-shadow: 0 8px 30px rgba(30, 44, 70, .10);
 }
-.plan-navy  { border-top-color: var(--ph-navy); }
-.plan-teal  { border-top-color: var(--ph-teal); }
-.plan-amber { border-top-color: var(--ph-amber); }
-
-.plan-col-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+.plan-col-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 14px; }
 .plan-col-days {
   font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600;
   color: var(--text-dim);
@@ -482,15 +476,8 @@ body {
   font-family: "Source Serif 4", Georgia, serif;
   font-size: 20px; font-weight: 600; color: var(--navy);
 }
-.plan-navy .plan-col-title  { color: var(--ph-navy); }
-.plan-teal .plan-col-title  { color: var(--ph-teal); }
-.plan-amber .plan-col-title { color: var(--ph-amber); }
 
-.plan-col-intent {
-  font-size: 12.5px; line-height: 1.65; color: var(--text-dim);
-  padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line);
-}
-.plan-bullets { list-style: none; }
+.plan-bullets { list-style: none; border-top: 1px solid var(--line); padding-top: 8px; }
 .plan-bullets li {
   font-size: 13px; line-height: 1.5; color: var(--text);
   padding: 6px 0 6px 16px; position: relative;
@@ -500,11 +487,11 @@ body {
 }
 .plan-win {
   margin-top: 14px; padding: 9px 12px; border-radius: 8px;
-  background: rgba(201, 138, 14, .10); border: 1px solid rgba(201, 138, 14, .30);
-  font-size: 12.5px; font-weight: 600; color: #8a5f06;
+  background: rgba(180, 123, 10, .10); border: 1px solid rgba(180, 123, 10, .32);
+  font-size: 12.5px; font-weight: 600; color: #7d5606;
 }
 .qw-mark { color: var(--gold); }
-.plan-metric { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+.plan-metric { margin-top: 10px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
 
 /* dissolve applies to the slide columns exactly as it does to the document */
 .plan-slide-head, #plan-columns > * {
@@ -541,7 +528,7 @@ body {
 .node-phase       { filter: drop-shadow(0 2px 4px rgba(30, 44, 70, .30)); }
 .node-stakeholder { filter: drop-shadow(0 1px 3px rgba(75, 105, 148, .45)); }
 .node-metric      { filter: none; opacity: .65; }
-.node-quickwin    { filter: drop-shadow(0 0 7px rgba(201, 138, 14, .60)); }
+.node-quick_win   { filter: drop-shadow(0 0 8px rgba(180, 123, 10, .65)); }
 .node-blocker     { filter: drop-shadow(0 0 6px rgba(192, 57, 43, .55)); }
 
 /* In progress — brighter glow to go with the active pulse. */
@@ -564,7 +551,6 @@ body {
 .link-depends_on  { stroke: var(--blue); }
 .link-owned_by    { stroke: var(--grey); stroke-opacity: .35; }
 .link-blocked_by  { stroke: var(--red); stroke-opacity: .70; }
-.link-delivers    { stroke: var(--gold); stroke-opacity: .75; }
 
 /* Labels: always-on for the orienting types, revealed on focus for the rest.
    A dimmed label goes fully out unless it is an always-on one, which keeps its
@@ -580,9 +566,6 @@ body {
 .plan-legend { flex-wrap: wrap; gap: 8px 18px; max-width: calc(100% - 44px); }
 .legend-group { display: flex; gap: 14px; flex-wrap: wrap; }
 .legend-note { color: var(--text-dim); font-style: italic; opacity: .85; }
-.dot-navy  { background: var(--ph-navy); }
-.dot-teal  { background: var(--ph-teal); }
-.dot-amber { background: var(--ph-amber); }
 .mark {
   display: inline-block; width: 9px; height: 9px; margin-right: 6px;
   background: var(--grey);
@@ -598,14 +581,23 @@ body {
 .badge-inprogress { background: rgba(0, 144, 220, .14); color: var(--blue); }
 .badge-atrisk     { background: rgba(192, 57, 43, .14); color: var(--red); }
 .badge-notstarted { background: rgba(75, 105, 148, .12); color: var(--text-dim); }
+.badge-high       { background: rgba(192, 57, 43, .14); color: var(--red); text-transform: capitalize; }
+.badge-medium     { background: rgba(213, 92, 23, .14); color: var(--amber); text-transform: capitalize; }
+
+/* Blocker severity, on the same two-step scale as the acquisition risks. */
+.risk-high   { background: rgba(192, 57, 43, .15); color: var(--red); }
+.risk-medium { background: rgba(213, 92, 23, .15); color: var(--amber); }
 
 .chip-phase { font-weight: 600; }
-.chip-navy  { background: rgba(30, 68, 121, .12); color: var(--ph-navy); }
-.chip-teal  { background: rgba(27, 154, 170, .14); color: #157e8c; }
-.chip-amber { background: rgba(213, 92, 23, .14); color: var(--ph-amber); }
 .chip-stk   { background: rgba(75, 105, 148, .16); color: var(--navy); }
-.chip-win   { background: rgba(201, 138, 14, .14); color: #8a5f06; font-weight: 600; }
+.chip-win   { background: rgba(180, 123, 10, .14); color: #7d5606; font-weight: 600; }
 .chip-met   { background: rgba(46, 158, 79, .12); color: #24793c; }
+
+.card-area {
+  font-family: "Inter", sans-serif; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim);
+  margin-left: 6px;
+}
 
 .status-btn {
   margin-top: 12px;
@@ -626,13 +618,22 @@ body {
 
 #screen-status { overflow-y: auto; }
 
+.dash-note {
+  font-size: 12px; line-height: 1.6; color: var(--text-dim);
+  background: rgba(0, 144, 220, .05);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+  margin: -14px 0 22px;
+}
+
 .phase-dot {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
   margin-right: 8px; vertical-align: baseline;
 }
-.phase-navy  { background: var(--ph-navy); }
-.phase-teal  { background: var(--ph-teal); }
-.phase-amber { background: var(--ph-amber); }
+
+/* The status legend doubles as the key to the graph's motion. */
+.legend-motion { display: block; font-size: 11px; color: var(--text-dim); opacity: .8; margin-left: 18px; }
 
 /* Two-segment bar: complete (solid) then in-progress (lighter), side by side.
    Scoped to #phase-bars so the acquisition coverage bars are untouched. */
@@ -651,8 +652,13 @@ body {
 .qw-body { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; min-width: 0; }
 .qw-title { font-size: 13.5px; font-weight: 600; color: var(--navy); }
 .qw-meta { font-size: 11.5px; color: var(--text-dim); }
-.qw-complete { background: rgba(201, 138, 14, .09); border-color: rgba(201, 138, 14, .35); }
+/* Keep the short cells on one line — "In progress" breaking across two rows
+   makes the table look ragged when the wide columns are the ones that matter. */
+#blocked-body td:nth-child(3), #blocked-body td:last-child { white-space: nowrap; }
+
+.qw-complete { background: rgba(180, 123, 10, .10); border-color: rgba(180, 123, 10, .38); }
 .qw-not_started .qw-mark { color: var(--line-strong); }
+.qw-at_risk { border-color: rgba(192, 57, 43, .35); }
 
 /* ============================================================
    Mobile / narrow viewports.

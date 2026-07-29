@@ -3,13 +3,19 @@
  * same "no NLP, keyword match to a traversal" approach as js/queries.js.
  * Each returns { set, alerts, primary } for Lattice.graph.focus().
  *
+ * The highlighted set is *derived* from the graph rather than listed, which
+ * is the whole point: change the plan and the answers change with it. Each
+ * query also carries the authored `expects` set from the plan brief, which
+ * verify() checks the traversal still covers.
+ *
  * Edge direction convention (source → target):
- *   action  belongs_to   phase
- *   action  depends_on   prerequisite action
- *   action  owned_by     stakeholder
- *   action  measured_by  metric      (phases too)
- *   action  blocked_by   blocker
- *   action  delivers     quick win
+ *   action     belongs_to   phase
+ *   action     depends_on   prerequisite action
+ *   action     owned_by     stakeholder
+ *   action     measured_by  metric      (phases too)
+ *   action     blocked_by   blocker
+ *   quick_win  belongs_to   phase
+ *   quick_win  depends_on   the action that delivers it
  */
 window.Lattice = window.Lattice || {};
 
@@ -48,14 +54,22 @@ Lattice.planQueries = (function () {
   const owners        = (id) => out(id, 'owned_by');
   const blockers      = (id) => out(id, 'blocked_by');
   const metricsOf     = (id) => out(id, 'measured_by');
-  const deliverables  = (id) => out(id, 'delivers');
-  const deliveredBy   = (id) => into(id, 'delivers');
   const phaseOf       = (id) => out(id, 'belongs_to')[0] || null;
   const actionsIn     = (phaseId) => into(phaseId, 'belongs_to').filter((n) => n.type === 'action');
   const ownedBy       = (stkId) => into(stkId, 'owned_by');
+  const blocking      = (blkId) => into(blkId, 'blocked_by');
+  const driving       = (metId) => into(metId, 'measured_by');
+
+  // Quick wins hang off the action that delivers them, via depends_on.
+  const quickWinsOf   = (actionId) => dependents(actionId).filter((n) => n.type === 'quick_win');
+  const enablingAction = (qwId) => prerequisites(qwId)[0] || null;
+
+  const allActions   = () => data().nodes.filter((n) => n.type === 'action');
+  const allQuickWins = () => data().nodes.filter((n) => n.type === 'quick_win');
+  const allBlockers  = () => data().nodes.filter((n) => n.type === 'blocker');
 
   // Everything transitively downstream of id along depends_on (i.e. work
-  // that cannot start until id lands), id excluded.
+  // that cannot land until id does), id excluded.
   function downstreamOf(id) {
     const seen = new Set();
     const queue = [id];
@@ -68,100 +82,111 @@ Lattice.planQueries = (function () {
     return [...seen];
   }
 
-  const allActions = () => data().nodes.filter((n) => n.type === 'action');
-  const statusOf = (id) => (data().byId[id] || {}).status;
-
-  // Decorate an action set with the context that makes it readable: the
-  // phase it sits in, who owns it, and anything blocking it.
+  // Decorate a set with the context that makes it readable. Each dimension
+  // is opt-out, because a query that drags in every owner and every metric
+  // stops being an answer and becomes the whole graph again.
   function withContext(set, opts = {}) {
     [...set].forEach((id) => {
       const n = data().byId[id];
-      if (!n || n.type !== 'action') return;
-      const p = phaseOf(id);
-      if (p) set.add(p.id);
+      if (!n) return;
+      if (opts.phases !== false) {
+        const p = phaseOf(id);
+        if (p) set.add(p.id);
+      }
+      if (n.type !== 'action') return;
       if (opts.owners !== false) owners(id).forEach((o) => set.add(o.id));
       if (opts.blockers !== false) blockers(id).forEach((b) => set.add(b.id));
       if (opts.metrics) metricsOf(id).forEach((m) => set.add(m.id));
-      if (opts.quickWins) deliverables(id).forEach((q) => set.add(q.id));
+      if (opts.quickWins) quickWinsOf(id).forEach((q) => set.add(q.id));
     });
     return set;
   }
 
-  // Anything in the set that should throb red: live blockers, and actions
+  // Anything in the set that should throb red: live blockers, and work
   // currently flagged at risk.
   function alertsIn(set) {
     return [...set].filter((id) => {
       const n = data().byId[id];
-      return n && (n.type === 'blocker' || (n.type === 'action' && n.status === 'at_risk'));
+      return n && (n.type === 'blocker' || n.status === 'at_risk');
     });
   }
 
   const CANNED = [
     {
       id: 'asset-library',
-      label: "What's blocking the asset library reaching production?",
+      label: 'What is blocking the asset library?',
       keywords: ['asset library', 'blocking', 'library'],
-      summary: 'ACT-08 (Stand up the asset library) with both blockers, the two actions it waits on, and everything downstream that cannot land until it does — the pilot bids, the productised offers and the campaign built on them.',
+      summary: 'Two blockers: no protected investment budget, and unassigned asset ownership. Both cascade — the first productised proposition and the phase 3 quick win depend on this.',
+      expects: ['a7', 'b2', 'b5', 'a3', 'a10', 'q3', 'm3'],
       run() {
-        const set = new Set(['ACT-08']);
-        prerequisites('ACT-08').forEach((n) => set.add(n.id));
-        downstreamOf('ACT-08').forEach((id) => set.add(id));
+        const set = new Set(['a7']);
+        prerequisites('a7').forEach((n) => set.add(n.id));
+        downstreamOf('a7').forEach((id) => set.add(id));
         withContext(set, { metrics: true, quickWins: true });
-        return { set, alerts: alertsIn(set), primary: 'ACT-08' };
+        return { set, alerts: alertsIn(set), primary: 'a7' };
       },
     },
     {
-      id: 'market-leads-60',
-      label: 'Show everything owned by the market leads in the first 60 days',
-      keywords: ['market leads', 'first 60', 'owned by'],
-      summary: 'Everything with Market Leads named as an owner inside days 1–60. Ownership concentration is the point: one group carries four actions across two phases — and the first quick win — while still running the Q3 bid load.',
+      id: 'market-leads',
+      label: 'Show everything the market leads own',
+      keywords: ['market lead', 'market leads'],
+      summary: 'The market leads sit on the critical path for account selection and the first productised client conversation — and their capacity is itself a flagged risk.',
+      expects: ['s2', 's3', 'a4', 'a5', 'a10', 'b4', 'q2'],
       run() {
-        const early = new Set(['PH-1', 'PH-2']);
-        const set = new Set(['STK-ML']);
-        ownedBy('STK-ML')
-          .filter((a) => a.type === 'action' && early.has(a.phase))
-          .forEach((a) => set.add(a.id));
+        const leads = data().nodes.filter((n) =>
+          n.type === 'stakeholder' && /market lead/i.test(n.label));
+        const set = new Set(leads.map((n) => n.id));
+        leads.forEach((l) => ownedBy(l.id).forEach((a) => set.add(a.id)));
         withContext(set, { owners: false, quickWins: true });
-        return { set, alerts: alertsIn(set), primary: 'STK-ML' };
+        return { set, alerts: alertsIn(set), primary: leads.length ? leads[0].id : null };
       },
     },
     {
       id: 'cost-centre',
-      label: "What depends on Guy's cost centre sign-off?",
-      keywords: ['cost centre', 'guy', 'sign-off', 'sign off'],
-      summary: 'The dependency chain out of ACT-04 (Agree cost centre & investment envelope). One sign-off gates recruitment, the asset library, both pilot bids and — three hops later — the year-one investment case.',
+      label: 'What depends on the cost centre lead?',
+      keywords: ['cost centre', 'cost center'],
+      summary: 'Pipeline mapping, the published growth plan and the measures baseline all route through the cost centre. Pipeline data quality is the blocker to watch.',
+      expects: ['s7', 'a2', 'a9', 'a12', 'm1', 'm4', 'b3'],
       run() {
-        const set = new Set(['ACT-04', 'STK-GUY']);
-        downstreamOf('ACT-04').forEach((id) => set.add(id));
-        withContext(set, { metrics: true, quickWins: true });
-        return { set, alerts: alertsIn(set), primary: 'ACT-04' };
+        const set = new Set(['s7']);
+        ownedBy('s7').forEach((a) => set.add(a.id));
+        withContext(set, { owners: false, metrics: true });
+        return { set, alerts: alertsIn(set), primary: 's7' };
       },
     },
     {
       id: 'quick-wins',
-      label: 'Show all quick wins across the 90 days',
+      label: 'Show all quick wins',
       keywords: ['quick win', 'quick wins'],
-      summary: 'One quick win per phase, each with the action that delivers it: a co-created account plan by day 28, a bid drafted from the library by day 58, a productised offer sold by day 88.',
+      summary: 'One per phase, each tied to a specific action — an honest pipeline view, a co-created account plan, and a real asset used in a live bid.',
+      expects: ['q1', 'q2', 'q3', 'a2', 'a5', 'a7'],
       run() {
         const set = new Set();
-        data().nodes.filter((n) => n.type === 'quickwin').forEach((q) => {
+        allQuickWins().forEach((q) => {
           set.add(q.id);
-          set.add(q.phase);
-          deliveredBy(q.id).forEach((a) => set.add(a.id));
+          const a = enablingAction(q.id);
+          if (a) set.add(a.id);
         });
-        withContext(set, { blockers: false });
+        withContext(set, { owners: false, blockers: false });
         return { set, alerts: alertsIn(set), primary: null };
       },
     },
     {
       id: 'at-risk',
-      label: "What's at risk right now?",
+      label: 'What is at risk right now?',
       keywords: ['at risk', 'risk right now', 'slipping'],
-      summary: 'Every action currently flagged at risk, with what is blocking it and who owns it. Change a status on the graph and this answer changes with it.',
+      summary: 'The asset library is the single at-risk action, and it has the widest downstream impact of anything in the plan.',
+      expects: ['a7', 'b2', 'b5', 'b1', 'b3', 'b4', 'a10', 'q3'],
       run() {
         const set = new Set();
-        allActions().filter((a) => a.status === 'at_risk').forEach((a) => set.add(a.id));
-        withContext(set, { metrics: true });
+        // Everything flagged at risk, everything downstream of it, and the
+        // full blocker set — the risk register alongside the work it hits.
+        data().nodes.filter((n) => n.status === 'at_risk').forEach((n) => {
+          set.add(n.id);
+          downstreamOf(n.id).forEach((id) => set.add(id));
+        });
+        allBlockers().forEach((b) => set.add(b.id));
+        withContext(set, { owners: false });
         return { set, alerts: alertsIn(set), primary: null };
       },
     },
@@ -174,10 +199,21 @@ Lattice.planQueries = (function () {
     ) || null;
   }
 
+  // Dev check: every authored highlight is still reachable by traversal.
+  // Call Lattice.planQueries.verify() from the console after editing the plan.
+  function verify() {
+    return CANNED.map((c) => {
+      const { set } = c.run();
+      const missing = (c.expects || []).filter((id) => !set.has(id));
+      return { id: c.id, ok: !missing.length, missing, size: set.size };
+    });
+  }
+
   return {
-    CANNED, match,
+    CANNED, match, verify,
     prerequisites, dependents, downstreamOf, owners, blockers, metricsOf,
-    deliverables, deliveredBy, phaseOf, actionsIn, ownedBy,
-    allActions, statusOf, alertsIn,
+    phaseOf, actionsIn, ownedBy, blocking, driving,
+    quickWinsOf, enablingAction,
+    allActions, allQuickWins, allBlockers, alertsIn,
   };
 })();

@@ -16,7 +16,7 @@
     <div class="brand">
       <span class="brand-mark">◆</span>
       <span class="brand-name">LATTICE</span>
-      <span class="brand-tag">90-Day Plan Tracker — same engine, different data model</span>
+      <span class="brand-tag">90-Day Plan — Data, Automation &amp; AI Practice</span>
     </div>
     <nav class="nav">
       <button data-nav="plan" class="nav-btn">1 · Plan</button>
@@ -30,9 +30,9 @@
   <main id="screen-plan" class="screen">
     <div class="plan-wrap">
       <div class="plan-slide-head">
-        <p class="plan-eyebrow">Practice leadership</p>
-        <h1 class="plan-slide-title">The first 90 days</h1>
-        <p class="plan-slide-sub">Three phases, nineteen actions, three quick wins — the version that fits on a slide.</p>
+        <p class="plan-eyebrow" id="plan-eyebrow"></p>
+        <h1 class="plan-slide-title" id="plan-title"></h1>
+        <p class="plan-slide-sub" id="plan-sub"></p>
       </div>
 
       <div id="plan-columns" class="plan-columns"></div>
@@ -65,11 +65,7 @@
       <svg id="graph-svg"></svg>
 
       <div class="graph-legend plan-legend">
-        <span class="legend-group">
-          <span><i class="dot dot-navy"></i>Days 1–30</span>
-          <span><i class="dot dot-teal"></i>Days 31–60</span>
-          <span><i class="dot dot-amber"></i>Days 61–90</span>
-        </span>
+        <span class="legend-group" id="phase-legend"></span>
         <span class="legend-group">
           <span><i class="mark mark-square"></i>Stakeholder</span>
           <span><i class="mark mark-star"></i>Quick win</span>
@@ -94,6 +90,7 @@
     <div class="dash-wrap">
       <h2 class="dash-title">Plan status — one model, two views</h2>
       <p class="dash-sub">Computed live from the same graph on screen 2. Cycle a status there and these numbers move with it.</p>
+      <p class="dash-note" id="plan-note"></p>
 
       <div id="plan-kpis" class="kpi-tiles"></div>
 
@@ -116,7 +113,7 @@
       <section class="dash-card dash-card-wide">
         <h3>Blocked actions — what stands between the plan and day 90</h3>
         <table class="gaps-table">
-          <thead><tr><th>ID</th><th>Action</th><th>Target</th><th>Owner</th><th>Blocked by</th><th>Status</th></tr></thead>
+          <thead><tr><th>ID</th><th>Action</th><th>Phase</th><th>Owner</th><th>Blocked by</th><th>Status</th></tr></thead>
           <tbody id="blocked-body"></tbody>
         </table>
       </section>

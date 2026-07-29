@@ -41,8 +41,16 @@ Lattice.graph = (function () {
     linkStrength: 0.35,
     charge: -95,
     collidePad: 4,
+    // Where a node is pulled towards, and how hard. Both may be functions of
+    // the node, which is how the plan lays its three phase hubs out as a
+    // left-to-right timeline while everything else stays centre-weighted.
+    anchorX: (d, w) => w / 2,
+    anchorY: (d, w, h) => h / 2,
     gravity: { x: 0.035, y: 0.045 },
     focusBoost: 2.5,
+    // Ceiling for the zoom a query focus applies. A sparse graph would
+    // otherwise slam into the cap and blow the labels up with it.
+    maxZoom: 2.2,
   };
 
   let svg, zoomLayer, linkSel, nodeSel, labelSel, sim, zoomBehaviour;
@@ -55,6 +63,12 @@ Lattice.graph = (function () {
     // d3 symbol size is an area; πr² makes a circle exactly radius r, and
     // keeps every other shape visually weighted the same as that circle.
     return d3.symbol().type(type).size(Math.PI * r * r)();
+  }
+
+  // gravity.x / gravity.y may be a constant or a per-node function.
+  function pull(axis) {
+    const g = schema.gravity[axis];
+    return typeof g === 'function' ? (d) => g(d) : g;
   }
 
   function nodeClass(d) {
@@ -128,8 +142,8 @@ Lattice.graph = (function () {
       .force('charge', d3.forceManyBody().strength(schema.charge))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collide', d3.forceCollide().radius((d) => schema.radius(d) + schema.collidePad))
-      .force('x', d3.forceX(width / 2).strength(schema.gravity.x))
-      .force('y', d3.forceY(height / 2).strength(schema.gravity.y))
+      .force('x', d3.forceX((d) => schema.anchorX(d, width, height)).strength(pull('x')))
+      .force('y', d3.forceY((d) => schema.anchorY(d, width, height)).strength(pull('y')))
       .alphaMin(0.0005)
       .alphaTarget(0.012) // never quite settles — the "breathing" baseline
       .on('tick', tick);
@@ -211,7 +225,7 @@ Lattice.graph = (function () {
     const x0 = d3.min(pts, (d) => d.x), x1 = d3.max(pts, (d) => d.x);
     const y0 = d3.min(pts, (d) => d.y), y1 = d3.max(pts, (d) => d.y);
     const dx = Math.max(x1 - x0, 60), dy = Math.max(y1 - y0, 60);
-    const scale = Math.min(2.2, 0.75 / Math.max(dx / width, dy / height));
+    const scale = Math.min(schema.maxZoom, 0.75 / Math.max(dx / width, dy / height));
     const tx = width / 2 - scale * (x0 + x1) / 2;
     const ty = height / 2 - scale * (y0 + y1) / 2;
     svg.transition().duration(850).ease(d3.easeCubicInOut)

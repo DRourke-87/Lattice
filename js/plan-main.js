@@ -11,66 +11,79 @@
   const Q = Lattice.planQueries;
   let graphStarted = false;
   let currentNode = null;
+  let lastQuery = null;
 
   /* ---------------- The plan schema ---------------- */
-
-  const PHASE_COLOUR = { navy: '#1e4479', teal: '#1b9aaa', amber: '#d55c17' };
 
   const TYPE_COLOUR = {
     stakeholder: '#4b6994',   // slate: "who", deliberately outside the phase palette
     metric: '#8d9cb3',        // peripheral, low-contrast — outcomes, not active work
-    quickwin: '#c98a0e',      // gold
-    blocker: '#c0392b',
+    quick_win: '#b47b0a',     // deep gold, distinct from the phase 3 amber
   };
 
   const RADIUS = {
-    phase: 17, action: 7.5, stakeholder: 10, metric: 5, quickwin: 9, blocker: 8,
+    phase: 18, action: 8, quick_win: 9.5, stakeholder: 10, metric: 5, blocker: 8,
   };
 
   const SHAPE = {
-    phase: 'circle', action: 'circle', stakeholder: 'square',
-    metric: 'diamond', quickwin: 'star', blocker: 'triangle',
+    phase: 'circle', action: 'circle', quick_win: 'star',
+    stakeholder: 'square', metric: 'diamond', blocker: 'triangle',
   };
 
   // Status drives motion and glow, never colour — phase colour owns the
   // colour channel, so the two stay legible at the same time.
   const MOTION = {
-    in_progress: { amp: 0.16, period: 820 },   // active pulse
-    at_risk:     { amp: 0.20, period: 520 },   // faster, red-tinted (see CSS)
-    complete:    { amp: 0.03, period: 1600 },  // settled
-    not_started: { amp: 0,    period: 900 },   // static
+    in_progress: { amp: 0.16, period: 820 },   // active pulse, brighter glow
+    at_risk:     { amp: 0.20, period: 520 },   // faster rhythm, red-tinted
+    complete:    { amp: 0.03, period: 1600 },  // steady, dimmer
+    not_started: { amp: 0,    period: 900 },   // static, low opacity
   };
 
-  function phaseColourOf(node) {
-    const phaseId = node.type === 'phase' ? node.id : node.phase;
-    const p = data.byId[phaseId];
-    return p ? PHASE_COLOUR[p.theme] : '#4b6994';
+  const isLive = (d) => data.LIVE_TYPES.indexOf(d.type) !== -1;
+
+  function nodeColour(d) {
+    if (d.type === 'blocker') return d.severity === 'high' ? '#c0392b' : '#d55c17';
+    if (TYPE_COLOUR[d.type]) return TYPE_COLOUR[d.type];
+    return data.phaseColour(d.type === 'phase' ? d.id : d.phase);
   }
 
   const LINK_DISTANCE = {
-    belongs_to: 62, depends_on: 58, owned_by: 92,
-    measured_by: 110, blocked_by: 44, delivers: 40,
+    belongs_to: 62, depends_on: 58, owned_by: 92, measured_by: 110, blocked_by: 44,
   };
 
-  // 46 nodes tuned for a presentation screen will burst out of a phone-sized
-  // canvas, so the spread scales with whatever room the graph actually gets.
+  // A graph tuned for a presentation screen bursts out of a phone-sized
+  // canvas, so the spread scales with whatever room it actually gets.
   function planSchema() {
     const compact = Math.min(window.innerWidth, window.innerHeight) < 700;
     const k = compact ? 0.55 : 1;
+    // Even fractions of the canvas, one per phase: 0.25/0.5/0.75 for three.
+    const spread = (d) => (data.phaseOrder[d.id] + 1) / (data.phases.length + 1);
     return {
-      colour: (d) => TYPE_COLOUR[d.type] || phaseColourOf(d),
+      colour: nodeColour,
       radius: (d) => RADIUS[d.type] || 6,
       symbol: (d) => SHAPE[d.type] || 'circle',
-      showLabel: (d) => d.type === 'phase' || d.type === 'stakeholder' || d.type === 'quickwin',
+      showLabel: (d) => d.type === 'phase' || d.type === 'stakeholder' || d.type === 'quick_win',
       labelOnFocus: true,
-      statusClass: (d) => (d.type === 'action' ? d.status : 'none'),
+      statusClass: (d) => (isLive(d) ? d.status : 'none'),
       statusClasses: data.STATUSES.concat(['none']),
-      motion: (d) => (d.type === 'action' ? MOTION[d.status] : { amp: 0.05, period: 1200 }),
+      motion: (d) => (isLive(d) ? MOTION[d.status] : { amp: 0.05, period: 1200 }),
       linkDistance: (l) => (LINK_DISTANCE[l.kind] || 60) * k,
       linkStrength: 0.5,
-      charge: -340 * k,
+      charge: -430 * k,
       collidePad: compact ? 5 : 9,
-      gravity: { x: 0.05, y: 0.06 },
+      // Phase hubs are pinned out along the canvas in plan order, so the graph
+      // reads as 90 days of time: left-to-right on a landscape screen, top-to-
+      // bottom on a portrait one. Actions follow their phase via belongs_to;
+      // everything else stays centre-weighted.
+      anchorX: (d, w) => (d.type === 'phase' && !compact ? w * spread(d) : w / 2),
+      anchorY: (d, w, h) => (d.type === 'phase' && compact ? h * spread(d) : h / 2),
+      gravity: {
+        x: (d) => (d.type === 'phase' ? (compact ? 0.1 : 0.42) : 0.045),
+        y: (d) => (d.type === 'phase' ? (compact ? 0.42 : 0.25) : 0.06),
+      },
+      // 36 nodes is a sparse graph: without a lower ceiling a focused query
+      // zooms until the labels are bigger than the nodes they belong to.
+      maxZoom: 1.35,
     };
   }
 
@@ -93,22 +106,28 @@
   /* ---------------- Screen 1: the plan as it appears on a slide ---------------- */
 
   function renderSlide() {
-    const holder = document.getElementById('plan-columns');
-    holder.innerHTML = data.phases.map((p) => {
-      const acts = Q.actionsIn(p.id).sort((a, b) => a.day - b.day);
-      const win = data.nodes.find((n) => n.type === 'quickwin' && n.phase === p.id);
-      const metric = Q.metricsOf(p.id)[0];
-      return '<div class="plan-col plan-' + p.theme + '">' +
+    document.getElementById('plan-title').textContent = 'The first 90 days';
+    document.getElementById('plan-eyebrow').textContent = data.context;
+    document.getElementById('plan-sub').textContent =
+      data.phases.length + ' phases, ' + Q.allActions().length + ' actions, ' +
+      Q.allQuickWins().length + ' quick wins — the version that fits on a slide.';
+
+    document.getElementById('plan-columns').innerHTML = data.phases.map((p) => {
+      const acts = Q.actionsIn(p.id);
+      const win = Q.allQuickWins().find((q) => q.phase === p.id);
+      const mets = Q.metricsOf(p.id);
+      const colour = data.phaseColour(p.id);
+      return '<div class="plan-col" style="border-top-color:' + colour + '">' +
         '<div class="plan-col-head">' +
-          '<span class="plan-col-days">' + p.short + '</span>' +
-          '<span class="plan-col-title">' + p.label.split('· ')[1] + '</span>' +
+          '<span class="plan-col-days">' + p.label + '</span>' +
+          '<span class="plan-col-title" style="color:' + colour + '">' + p.sublabel + '</span>' +
         '</div>' +
-        '<p class="plan-col-intent">' + p.intent + '</p>' +
         '<ul class="plan-bullets">' +
           acts.map((a) => '<li>' + a.label + '</li>').join('') +
         '</ul>' +
         (win ? '<div class="plan-win"><span class="qw-mark">★</span> Quick win: ' + win.label + '</div>' : '') +
-        (metric ? '<div class="plan-metric"><span class="card-k">Measured by</span> ' + metric.label + '</div>' : '') +
+        (mets.length ? '<div class="plan-metric"><span class="card-k">Measured by</span> ' +
+          mets.map((m) => m.label).join(' · ') + '</div>' : '') +
       '</div>';
     }).join('');
   }
@@ -136,14 +155,13 @@
     Lattice.graph.init('#graph-svg', data, {
       schema: planSchema(),
       onNodeClick: showNodeCard,
-      onNodeDblClick: (d) => { if (d.type === 'action') cycleStatus(d.id); },
+      onNodeDblClick: (d) => { if (isLive(d)) cycleStatus(d.id); },
     });
   }
 
   const panel = document.getElementById('side-panel');
   const panelBody = document.getElementById('panel-body');
   const panelTitle = document.getElementById('panel-title');
-  let lastQuery = null;
 
   function openPanel() { panel.classList.add('open'); }
   function closePanel() { panel.classList.remove('open'); }
@@ -161,92 +179,88 @@
   function phaseChip(phaseId) {
     const p = data.byId[phaseId];
     if (!p) return '';
-    return '<span class="chip chip-phase chip-' + p.theme + '">' + p.short + '</span>';
+    return '<span class="chip chip-phase" style="background:' + data.phaseTint(phaseId, 0.14) +
+      ';color:' + data.phaseColour(phaseId) + '">' + p.label + ' · ' + p.sublabel + '</span>';
+  }
+
+  const chip = (n) => '<span class="chip">' + n.label + '</span>';
+  const blockerChip = (b) => '<span class="risk-chip risk-' + b.severity + '">' + b.label + '</span>';
+  const row = (k, html) =>
+    (html ? '<div class="card-row"><span class="card-k">' + k + '</span> ' + html + '</div>' : '');
+
+  function cycleControl(id) {
+    return '<button class="status-btn" data-cycle="' + id + '">Cycle status ▸</button>';
   }
 
   function actionCard(a) {
-    const owns = Q.owners(a.id);
-    const blks = Q.blockers(a.id);
-    const mets = Q.metricsOf(a.id);
-    const pre = Q.prerequisites(a.id);
-    const post = Q.dependents(a.id);
-    const wins = Q.deliverables(a.id);
-    const row = (k, html) => (html ? '<div class="card-row"><span class="card-k">' + k + '</span> ' + html + '</div>' : '');
-
     return '<div class="card">' +
       '<div class="card-head"><span class="mono">' + a.id + '</span>' + statusBadge(a.status) + '</div>' +
       '<div class="card-title">' + a.label + '</div>' +
-      '<div class="card-row">' + phaseChip(a.phase) +
-        '<span class="chip">Target day ' + a.day + '</span></div>' +
+      '<div class="card-row">' + phaseChip(a.phase) + '</div>' +
       '<p class="card-text">' + a.detail + '</p>' +
-      row('Owned by', owns.map((o) => '<span class="chip chip-stk">' + o.label + '</span>').join('')) +
-      row('Depends on', pre.map((n) => '<span class="chip">' + n.id + ' ' + n.label + '</span>').join('')) +
-      row('Blocks', post.map((n) => '<span class="chip">' + n.id + ' ' + n.label + '</span>').join('')) +
-      row('Blocked by', blks.map((b) => '<span class="risk-chip risk-' + b.severity + '">' + b.label + '</span>').join(' ')) +
-      row('Quick win', wins.map((w) => '<span class="chip chip-win">★ ' + w.label + '</span>').join('')) +
-      row('Measured by', mets.map((m) => '<span class="chip chip-met">' + m.label + '</span>').join('')) +
-      '<button class="status-btn" data-cycle="' + a.id + '">Cycle status ▸</button>' +
+      row('Owned by', Q.owners(a.id).map((o) => '<span class="chip chip-stk">' + o.label + '</span>').join('')) +
+      row('Depends on', Q.prerequisites(a.id).map(chip).join('')) +
+      row('Blocks', Q.dependents(a.id).filter((n) => n.type === 'action').map(chip).join('')) +
+      row('Blocked by', Q.blockers(a.id).map(blockerChip).join(' ')) +
+      row('Quick win', Q.quickWinsOf(a.id).map((w) =>
+        '<span class="chip chip-win">★ ' + w.label + '</span>').join('')) +
+      row('Measured by', Q.metricsOf(a.id).map((m) =>
+        '<span class="chip chip-met">' + m.label + '</span>').join('')) +
+      cycleControl(a.id) +
     '</div>';
   }
 
   const TYPE_LABEL = {
     phase: 'Phase', stakeholder: 'Stakeholder', metric: 'Metric',
-    quickwin: 'Quick win', blocker: 'Blocker',
+    quick_win: 'Quick win', blocker: 'Blocker',
   };
 
   function simpleCard(node) {
     const extra = [];
+
+    if (node.type === 'quick_win') {
+      const by = Q.enablingAction(node.id);
+      extra.push('<div class="card-row">' + phaseChip(node.phase) + '</div>');
+      if (by) extra.push(row('Delivered by', chip(by)));
+      extra.push(cycleControl(node.id));
+    }
     if (node.type === 'stakeholder') {
-      const owned = Q.ownedBy(node.id).sort((a, b) => a.day - b.day);
-      extra.push('<p class="card-text">' + node.role + '</p>');
-      extra.push('<div class="card-row"><span class="card-k">Owns</span> ' +
-        owned.map((a) => '<span class="chip">' + a.id + ' ' + a.label + '</span>').join('') + '</div>');
+      extra.push(row('Owns', Q.ownedBy(node.id).map(chip).join('')));
     }
     if (node.type === 'blocker') {
-      extra.push('<p class="card-text">' + node.note + '</p>');
-      const blocked = data.links
-        .filter((l) => l.kind === 'blocked_by' &&
-          (typeof l.target === 'object' ? l.target.id : l.target) === node.id)
-        .map((l) => data.byId[typeof l.source === 'object' ? l.source.id : l.source]);
-      extra.push('<div class="card-row"><span class="card-k">Blocking</span> ' +
-        blocked.map((a) => '<span class="chip">' + a.id + ' ' + a.label + '</span>').join('') + '</div>');
-    }
-    if (node.type === 'quickwin') {
-      const by = Q.deliveredBy(node.id)[0];
-      extra.push('<p class="card-text">' + node.note + '</p>');
-      extra.push('<div class="card-row">' + phaseChip(node.phase) +
-        '<span class="chip">Target day ' + node.day + '</span></div>');
-      if (by) extra.push('<div class="card-row"><span class="card-k">Delivered by</span> ' +
-        '<span class="chip">' + by.id + ' ' + by.label + '</span></div>');
+      extra.push('<p class="card-text">' + node.detail + '</p>');
+      extra.push(row('Blocking', Q.blocking(node.id).map(chip).join('')));
     }
     if (node.type === 'metric') {
-      extra.push('<p class="card-text">' + node.target + '</p>');
-      const drivers = data.links
-        .filter((l) => l.kind === 'measured_by' &&
-          (typeof l.target === 'object' ? l.target.id : l.target) === node.id)
-        .map((l) => data.byId[typeof l.source === 'object' ? l.source.id : l.source]);
-      extra.push('<div class="card-row"><span class="card-k">Driven by</span> ' +
-        drivers.map((a) => '<span class="chip">' + a.id + ' ' + a.label + '</span>').join('') + '</div>');
+      extra.push('<p class="card-text">' + node.outcome + '</p>');
+      extra.push(row('Driven by', Q.driving(node.id).map(chip).join('')));
     }
     if (node.type === 'phase') {
       const acts = Q.actionsIn(node.id);
       const done = acts.filter((a) => a.status === 'complete').length;
-      extra.push('<p class="card-text">' + node.intent + '</p>');
-      extra.push('<div class="card-row"><span class="card-k">Progress</span> ' +
-        '<span class="chip">' + done + ' of ' + acts.length + ' complete</span></div>');
+      extra.push(row('Progress', '<span class="chip">' + done + ' of ' + acts.length + ' complete</span>'));
+      extra.push(row('Measured by', Q.metricsOf(node.id).map((m) =>
+        '<span class="chip chip-met">' + m.label + '</span>').join('')));
     }
 
+    const head = node.type === 'quick_win' && node.status
+      ? statusBadge(node.status)
+      : '<span class="badge badge-' +
+        (node.type === 'blocker' ? node.severity : 'type') + '">' +
+        (node.type === 'blocker' ? node.severity + ' severity' : TYPE_LABEL[node.type] || node.type) +
+        '</span>';
+
     return '<div class="card">' +
-      '<div class="card-head"><span class="mono">' + node.id + '</span>' +
-      '<span class="badge badge-type">' + (TYPE_LABEL[node.type] || node.type) + '</span></div>' +
-      '<div class="card-title">' + node.label + '</div>' +
+      '<div class="card-head"><span class="mono">' + node.id + '</span>' + head + '</div>' +
+      '<div class="card-title">' + node.label +
+        (node.type === 'phase' ? ' · ' + node.sublabel : '') +
+        (node.type === 'metric' ? ' <span class="card-area">' + node.area + '</span>' : '') +
+      '</div>' +
       extra.join('') +
     '</div>';
   }
 
-  function cardFor(node) {
-    return node.type === 'action' ? actionCard(node) : simpleCard(node);
-  }
+  const cardFor = (node) => (node.type === 'action' ? actionCard(node) : simpleCard(node));
 
   function showNodeCard(node) {
     currentNode = node;
@@ -258,14 +272,13 @@
   // The "living" bit: cycle a status and everything re-reads it — the node's
   // motion, the side panel, and the status board on screen 3.
   function cycleStatus(id) {
-    data.cycleStatus(id);
+    if (!data.cycleStatus(id)) return;
     Lattice.graph.refresh();
-    if (panel.classList.contains('open')) {
-      if (currentNode && currentNode.id === id) {
-        panelBody.innerHTML = cardFor(data.byId[id]);
-      } else if (lastQuery) {
-        runQuery(lastQuery, true);
-      }
+    if (!panel.classList.contains('open')) return;
+    if (currentNode && currentNode.id === id) {
+      panelBody.innerHTML = cardFor(data.byId[id]);
+    } else if (lastQuery) {
+      runQuery(lastQuery, true);
     }
   }
 
@@ -273,6 +286,12 @@
     const btn = e.target.closest('[data-cycle]');
     if (btn) cycleStatus(btn.dataset.cycle);
   });
+
+  // Plan order: phase first, then the id's numeric suffix.
+  function planOrder(n) {
+    const seq = parseInt(String(n.id).replace(/\D+/g, ''), 10) || 0;
+    return (data.phaseOrder[n.phase] != null ? data.phaseOrder[n.phase] : 9) * 1000 + seq;
+  }
 
   function runQuery(text, quiet) {
     const canned = Q.match(text);
@@ -291,14 +310,14 @@
 
     const listed = [...result.set]
       .map((id) => data.byId[id])
-      .filter((n) => n && (n.type === 'action' || n.type === 'quickwin'))
-      .sort((a, b) => {
-        if (a.id === result.primary) return -1;
-        if (b.id === result.primary) return 1;
-        return a.day - b.day;
-      });
+      .filter((n) => n && (n.type === 'action' || n.type === 'quick_win'))
+      .sort((a, b) => planOrder(a) - planOrder(b));
     const primary = result.primary ? data.byId[result.primary] : null;
-    if (primary && !listed.includes(primary)) listed.unshift(primary);
+    if (primary && listed.indexOf(primary) === -1) listed.unshift(primary);
+    else if (primary) {
+      listed.splice(listed.indexOf(primary), 1);
+      listed.unshift(primary);
+    }
 
     panelTitle.textContent = listed.length + ' item' + (listed.length === 1 ? '' : 's');
     panelBody.innerHTML = '<p class="panel-note">' + canned.summary + '</p>' +
@@ -334,6 +353,12 @@
 
   /* ---------------- Boot ---------------- */
 
+  // Legend swatches take the phase colours straight from the data.
+  document.getElementById('phase-legend').innerHTML = data.phases.map((p) =>
+    '<span><i class="dot" style="background:' + data.phaseColour(p.id) + '"></i>' +
+    p.label + '</span>').join('');
+
+  document.querySelector('.brand-tag').textContent = data.title;
   renderSlide();
   show('plan');
 })();

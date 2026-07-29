@@ -6,22 +6,153 @@
  * transcribed into them. The engine, the force simulation, the query /
  * focus / dim interaction and the side panel behaviour are all shared.
  *
- * Node types:  phase | action | stakeholder | metric | quickwin | blocker
- * Edge kinds:  belongs_to | depends_on | owned_by | measured_by | blocked_by
- *              | delivers   (action → quick win; the one addition the brief's
- *                            edge table implies but doesn't name)
+ * Node types:  phase | action | quick_win | stakeholder | metric | blocker
+ * Edge types:  belongs_to | depends_on | owned_by | measured_by | blocked_by
  *
- * ── REPLACE-ME ────────────────────────────────────────────────────────────
- * The phases, actions, stakeholders and quick wins below are a placeholder
- * transcription in the shape of the real plan. Swap the arrays in this file
- * for the actual 90-day plan content and everything downstream — graph,
- * queries, slide, status board — follows automatically. Nothing else needs
- * to change.
- * ─────────────────────────────────────────────────────────────────────────
+ * SEED below is the plan verbatim — nodes and edges exactly as authored, so
+ * updating the plan is a paste rather than an edit. Everything after it is
+ * generic adaptation into the arrays the engine and queries expect.
  */
 window.Lattice = window.Lattice || {};
 
 Lattice.planData = (function () {
+  const SEED = {
+    meta: {
+      title: '90-Day Plan — Data, Automation & AI Practice',
+      owner: 'Darren Rourke',
+      context: 'Turner & Townsend · Director, Digital',
+      note: "Statuses represent a simulated 'day 20' snapshot so the graph has visual variety in the demo. Set all actions to 'not_started' for a true day-zero view.",
+      statusLegend: {
+        complete: 'steady, dimmer glow',
+        in_progress: 'active pulse, brighter glow',
+        at_risk: 'red-tinted pulse, faster rhythm',
+        not_started: 'static, low opacity',
+      },
+    },
+
+    nodes: [
+      { id: 'p1', type: 'phase', label: 'Days 1–30', sublabel: 'Listen & Map', color: '0F1E36' },
+      { id: 'p2', type: 'phase', label: 'Days 31–60', sublabel: 'Focus & Prove', color: '0E7490' },
+      { id: 'p3', type: 'phase', label: 'Days 61–90', sublabel: 'Commit & Measure', color: 'E8A020' },
+
+      { id: 'a1', type: 'action', label: 'Meet the senior team & practice', detail: 'Meet every one of the senior team and a cross-section of the 60-person practice.', phase: 'p1', status: 'complete' },
+      { id: 'a2', type: 'action', label: 'Map pipeline & conversion', detail: 'Map live pipeline, current bids and the real conversion rate — not the reported one.', phase: 'p1', status: 'in_progress' },
+      { id: 'a3', type: 'action', label: 'Audit existing assets', detail: 'Audit what reusable assets already exist. Most practices under-count their own IP.', phase: 'p1', status: 'in_progress' },
+      { id: 'a4', type: 'action', label: 'Meet market leads & account managers', detail: 'Meet the people who already hold the client relationships in Defence & Government.', phase: 'p1', status: 'complete' },
+
+      { id: 'a5', type: 'action', label: 'Agree 5–6 priority accounts', detail: 'Select the accounts with warmth and a real digital need. Depth, not breadth.', phase: 'p2', status: 'in_progress' },
+      { id: 'a6', type: 'action', label: 'Sharpen the capability story', detail: 'One page, plain English, tellable in 60 seconds by any consultant in the practice.', phase: 'p2', status: 'not_started' },
+      { id: 'a7', type: 'action', label: 'Stand up the asset library', detail: 'Two accelerators identified, each with a named owner — not a committee.', phase: 'p2', status: 'at_risk' },
+      { id: 'a8', type: 'action', label: 'Introduce 3·3·1 and win/loss review', detail: 'Embed a repeatable BD rhythm across the practice, not just the naturals.', phase: 'p2', status: 'not_started' },
+
+      { id: 'a9', type: 'action', label: 'Publish the growth plan', detail: 'Named owners and numbers against every line. Public commitment.', phase: 'p3', status: 'not_started' },
+      { id: 'a10', type: 'action', label: 'Take a productised proposition to client', detail: 'First accelerator-backed proposition in a live client conversation.', phase: 'p3', status: 'not_started' },
+      { id: 'a11', type: 'action', label: 'Agree the talent plan', detail: 'Cleared pipeline building ahead of demand, not after the contract lands.', phase: 'p3', status: 'not_started' },
+      { id: 'a12', type: 'action', label: 'Baseline and commit to measures', detail: 'A small number of measures, set with real data, committed to publicly.', phase: 'p3', status: 'not_started' },
+
+      { id: 'q1', type: 'quick_win', label: 'Single honest view of pipeline & capacity', phase: 'p1', status: 'in_progress' },
+      { id: 'q2', type: 'quick_win', label: 'First co-created account plan with a market lead', phase: 'p2', status: 'not_started' },
+      { id: 'q3', type: 'quick_win', label: 'A demonstrable asset used in a real bid', phase: 'p3', status: 'not_started' },
+
+      { id: 's1', type: 'stakeholder', label: 'Digital Leadership' },
+      { id: 's2', type: 'stakeholder', label: 'Market Leads — Defence' },
+      { id: 's3', type: 'stakeholder', label: 'Market Leads — Government' },
+      { id: 's4', type: 'stakeholder', label: 'Account Managers' },
+      { id: 's5', type: 'stakeholder', label: 'Bid Team' },
+      { id: 's6', type: 'stakeholder', label: 'Resourcing & Talent' },
+      { id: 's7', type: 'stakeholder', label: 'Cost Centre Lead' },
+      { id: 's8', type: 'stakeholder', label: 'The Practice (c.60)' },
+
+      { id: 'm1', type: 'metric', label: 'Pipeline value & conversion rate', area: 'Growth', outcome: 'Baselined at 90 days, improving trend by month 6' },
+      { id: 'm2', type: 'metric', label: 'Bid win rate & average engagement value', area: 'Commercial', outcome: 'Higher win rate on fewer, better-qualified bids' },
+      { id: 'm3', type: 'metric', label: 'Reusable assets & rate of reuse', area: 'Productisation', outcome: 'Two accelerators live and used in bids by month 6' },
+      { id: 'm4', type: 'metric', label: 'Client satisfaction, delivery health, margin', area: 'Delivery', outcome: 'Held or improved while growth accelerates' },
+      { id: 'm5', type: 'metric', label: 'Retention, cleared bench depth, progression', area: 'People', outcome: 'Bench ahead of demand, visible succession in place' },
+
+      { id: 'b1', type: 'blocker', label: 'Clearance timelines', detail: 'SC/DV processing time constrains how fast the bench can grow.', severity: 'high' },
+      { id: 'b2', type: 'blocker', label: 'No protected investment budget', detail: 'Accelerator work has no client to bill to — it is the first thing cut under pressure.', severity: 'high' },
+      { id: 'b3', type: 'blocker', label: 'Pipeline data quality', detail: 'Reported pipeline and real pipeline may not match. Cannot baseline what is not accurate.', severity: 'medium' },
+      { id: 'b4', type: 'blocker', label: 'Market lead capacity', detail: 'The people who hold the relationships are the busiest people in the business.', severity: 'medium' },
+      { id: 'b5', type: 'blocker', label: 'Unassigned asset ownership', detail: 'Assets without a named owner decay. Committees do not maintain code.', severity: 'medium' },
+    ],
+
+    edges: [
+      { source: 'a1', target: 'p1', type: 'belongs_to' },
+      { source: 'a2', target: 'p1', type: 'belongs_to' },
+      { source: 'a3', target: 'p1', type: 'belongs_to' },
+      { source: 'a4', target: 'p1', type: 'belongs_to' },
+      { source: 'a5', target: 'p2', type: 'belongs_to' },
+      { source: 'a6', target: 'p2', type: 'belongs_to' },
+      { source: 'a7', target: 'p2', type: 'belongs_to' },
+      { source: 'a8', target: 'p2', type: 'belongs_to' },
+      { source: 'a9', target: 'p3', type: 'belongs_to' },
+      { source: 'a10', target: 'p3', type: 'belongs_to' },
+      { source: 'a11', target: 'p3', type: 'belongs_to' },
+      { source: 'a12', target: 'p3', type: 'belongs_to' },
+      { source: 'q1', target: 'p1', type: 'belongs_to' },
+      { source: 'q2', target: 'p2', type: 'belongs_to' },
+      { source: 'q3', target: 'p3', type: 'belongs_to' },
+
+      { source: 'a5', target: 'a2', type: 'depends_on' },
+      { source: 'a5', target: 'a4', type: 'depends_on' },
+      { source: 'a6', target: 'a1', type: 'depends_on' },
+      { source: 'a7', target: 'a3', type: 'depends_on' },
+      { source: 'a8', target: 'a4', type: 'depends_on' },
+      { source: 'a9', target: 'a5', type: 'depends_on' },
+      { source: 'a9', target: 'a6', type: 'depends_on' },
+      { source: 'a10', target: 'a7', type: 'depends_on' },
+      { source: 'a10', target: 'a5', type: 'depends_on' },
+      { source: 'a11', target: 'a5', type: 'depends_on' },
+      { source: 'a12', target: 'a2', type: 'depends_on' },
+      { source: 'q1', target: 'a2', type: 'depends_on' },
+      { source: 'q2', target: 'a5', type: 'depends_on' },
+      { source: 'q3', target: 'a7', type: 'depends_on' },
+
+      { source: 'a1', target: 's8', type: 'owned_by' },
+      { source: 'a1', target: 's1', type: 'owned_by' },
+      { source: 'a2', target: 's5', type: 'owned_by' },
+      { source: 'a2', target: 's7', type: 'owned_by' },
+      { source: 'a3', target: 's8', type: 'owned_by' },
+      { source: 'a4', target: 's2', type: 'owned_by' },
+      { source: 'a4', target: 's3', type: 'owned_by' },
+      { source: 'a4', target: 's4', type: 'owned_by' },
+      { source: 'a5', target: 's2', type: 'owned_by' },
+      { source: 'a5', target: 's3', type: 'owned_by' },
+      { source: 'a5', target: 's4', type: 'owned_by' },
+      { source: 'a6', target: 's1', type: 'owned_by' },
+      { source: 'a7', target: 's8', type: 'owned_by' },
+      { source: 'a8', target: 's5', type: 'owned_by' },
+      { source: 'a9', target: 's1', type: 'owned_by' },
+      { source: 'a9', target: 's7', type: 'owned_by' },
+      { source: 'a10', target: 's2', type: 'owned_by' },
+      { source: 'a11', target: 's6', type: 'owned_by' },
+      { source: 'a12', target: 's7', type: 'owned_by' },
+
+      { source: 'a2', target: 'm1', type: 'measured_by' },
+      { source: 'a5', target: 'm1', type: 'measured_by' },
+      { source: 'a8', target: 'm2', type: 'measured_by' },
+      { source: 'a9', target: 'm2', type: 'measured_by' },
+      { source: 'a3', target: 'm3', type: 'measured_by' },
+      { source: 'a7', target: 'm3', type: 'measured_by' },
+      { source: 'a10', target: 'm3', type: 'measured_by' },
+      { source: 'a12', target: 'm4', type: 'measured_by' },
+      { source: 'a11', target: 'm5', type: 'measured_by' },
+      { source: 'p3', target: 'm1', type: 'measured_by' },
+      { source: 'p3', target: 'm4', type: 'measured_by' },
+
+      { source: 'a7', target: 'b2', type: 'blocked_by' },
+      { source: 'a7', target: 'b5', type: 'blocked_by' },
+      { source: 'a2', target: 'b3', type: 'blocked_by' },
+      { source: 'a12', target: 'b3', type: 'blocked_by' },
+      { source: 'a11', target: 'b1', type: 'blocked_by' },
+      { source: 'a5', target: 'b4', type: 'blocked_by' },
+      { source: 'a4', target: 'b4', type: 'blocked_by' },
+      { source: 'a10', target: 'b2', type: 'blocked_by' },
+    ],
+  };
+
+  /* ---------------- Adaptation (generic — no plan content below) ---------------- */
+
   const STATUSES = ['not_started', 'in_progress', 'complete', 'at_risk'];
   const STATUS_LABEL = {
     not_started: 'Not started',
@@ -29,291 +160,50 @@ Lattice.planData = (function () {
     complete: 'Complete',
     at_risk: 'At risk',
   };
+  // Types that carry a status, and so drive the "living" motion.
+  const LIVE_TYPES = ['action', 'quick_win'];
 
-  const nodes = [];
-  const links = [];
+  const nodes = SEED.nodes.map((n) => Object.assign({}, n));
+  const links = SEED.edges.map((e) => ({ source: e.source, target: e.target, kind: e.type }));
   const byId = {};
+  nodes.forEach((n) => { byId[n.id] = n; });
 
-  function addNode(n) { nodes.push(n); byId[n.id] = n; return n; }
-  function addLink(source, target, kind) { links.push({ source, target, kind }); }
+  const phases = nodes.filter((n) => n.type === 'phase');
+  const phaseOrder = {};
+  phases.forEach((p, i) => { phaseOrder[p.id] = i; });
 
-  /* ---------------- Phases (the three hub nodes) ---------------- */
+  function phaseColour(phaseId) {
+    const p = byId[phaseId];
+    return p && p.color ? '#' + p.color : '#4b6994';
+  }
 
-  const phases = [
-    {
-      id: 'PH-1', label: 'Days 1–30 · Listen & Map', short: 'Days 1–30',
-      theme: 'navy', from: 1, to: 30,
-      intent: 'Understand the practice as it actually is — not as the org chart describes it — and baseline the numbers everything later is measured against.',
-    },
-    {
-      id: 'PH-2', label: 'Days 31–60 · Focus & Prove', short: 'Days 31–60',
-      theme: 'teal', from: 31, to: 60,
-      intent: 'Narrow to the few things that matter, and prove them on live work rather than in a strategy document.',
-    },
-    {
-      id: 'PH-3', label: 'Days 61–90 · Scale & Systemise', short: 'Days 61–90',
-      theme: 'amber', from: 61, to: 90,
-      intent: 'Turn what worked into something repeatable, and hand the board a scorecard rather than an anecdote.',
-    },
-  ];
-  phases.forEach((p) => addNode({ ...p, type: 'phase' }));
-
-  /* ---------------- Stakeholders ---------------- */
-
-  const stakeholders = [
-    { id: 'STK-GUY',  label: 'Guy Beaumont', role: 'Cost centre & investment sign-off' },
-    { id: 'STK-ML',   label: 'Market Leads', role: 'Client relationships and sector priorities' },
-    { id: 'STK-PRA',  label: 'Practice Team', role: 'Delivery and capability' },
-    { id: 'STK-BID',  label: 'Work-Winning Team', role: 'Bid process and qualification' },
-    { id: 'STK-CLI',  label: 'Priority Clients', role: 'Named accounts in the first 90 days' },
-    { id: 'STK-MKT',  label: 'Marketing & Comms', role: 'Narrative, campaign and channel' },
-    { id: 'STK-HR',   label: 'Resourcing & Talent', role: 'Hiring, clearance and onboarding' },
-    { id: 'STK-EXEC', label: 'Executive Board', role: 'Mandate and year-one investment case' },
-  ];
-  stakeholders.forEach((s) => addNode({ ...s, type: 'stakeholder' }));
-
-  /* ---------------- Metrics ---------------- */
-
-  const metrics = [
-    { id: 'MET-WIN',  label: 'Bid win rate', target: '32% → 40% by day 90' },
-    { id: 'MET-PIPE', label: 'Qualified pipeline value', target: 'Baselined by day 30, +25% by day 90' },
-    { id: 'MET-REUSE', label: 'Reuse rate on bids', target: '60% of a bid drawn from existing assets' },
-    { id: 'MET-TTV',  label: 'Time to first draft', target: '10 working days → 5' },
-    { id: 'MET-NPS',  label: 'Client feedback score', target: 'Structured feedback on every priority account' },
-    { id: 'MET-UTIL', label: 'Chargeable utilisation', target: 'Stable through the transition, no dip below 68%' },
-    { id: 'MET-HEAD', label: 'Cleared headcount', target: 'Two senior hires cleared and started by day 90' },
-  ];
-  metrics.forEach((m) => addNode({ ...m, type: 'metric' }));
-
-  /* ---------------- Blockers / risks ---------------- */
-
-  const blockers = [
-    { id: 'BLK-01', label: 'Clearance timeline for new hires', severity: 'red',
-      note: 'Vetting is running at 12–16 weeks. Anyone not already cleared cannot contribute inside the 90 days.' },
-    { id: 'BLK-02', label: 'No agreed home for shared assets', severity: 'amber',
-      note: 'SharePoint vs the Teams estate is unresolved; nobody will file work into a location they expect to move.' },
-    { id: 'BLK-03', label: 'Market leads committed to Q3 bids', severity: 'amber',
-      note: 'The people needed for account planning are the same people carrying the current bid load.' },
-    { id: 'BLK-04', label: 'Legacy credentials not cleared for reuse', severity: 'red',
-      note: 'Client permission and IP position unconfirmed on roughly half the back catalogue.' },
-    { id: 'BLK-05', label: 'Recruitment paused pending budget', severity: 'amber',
-      note: 'No requisition can be raised until the cost centre and envelope are agreed.' },
-    { id: 'BLK-06', label: 'Marketing calendar already committed', severity: 'amber',
-      note: 'Channel and campaign slots for the quarter are allocated to other practices.' },
-  ];
-  blockers.forEach((b) => addNode({ ...b, type: 'blocker' }));
-
-  /* ---------------- Actions ---------------- */
-
-  const actions = [
-    /* --- Phase 1: Listen & Map --- */
-    {
-      id: 'ACT-01', label: 'Structured listening tour', phase: 'PH-1', day: 14,
-      status: 'complete',
-      detail: 'Forty-five minute structured conversations with every market lead and the practice team, to one question set so the answers are comparable rather than anecdotal.',
-      owners: ['STK-ML', 'STK-PRA'],
-    },
-    {
-      id: 'ACT-02', label: 'Capability & credentials audit', phase: 'PH-1', day: 21,
-      status: 'complete',
-      detail: 'What we can actually evidence, versus what we claim in bids. Produces the inventory the asset library is later built from.',
-      owners: ['STK-PRA'],
-    },
-    {
-      id: 'ACT-03', label: 'Baseline the numbers', phase: 'PH-1', day: 21,
-      status: 'complete',
-      detail: 'Pipeline, win rate, utilisation and bid cost, established as a baseline before any change so improvement is arguable rather than asserted.',
-      owners: ['STK-GUY'],
-      metrics: ['MET-WIN', 'MET-PIPE', 'MET-UTIL'],
-    },
-    {
-      id: 'ACT-04', label: "Agree cost centre & investment envelope", phase: 'PH-1', day: 30,
-      status: 'in_progress',
-      detail: 'A named cost centre and an agreed envelope for the 90 days. Everything with a cost attached waits behind this.',
-      owners: ['STK-GUY', 'STK-EXEC'],
-      dependsOn: ['ACT-03'],
-    },
-    {
-      id: 'ACT-05', label: 'Shortlist priority clients', phase: 'PH-1', day: 28,
-      status: 'in_progress',
-      detail: 'Six named accounts, chosen on evidence from the listening tour rather than on who shouts loudest.',
-      owners: ['STK-ML', 'STK-CLI'],
-      dependsOn: ['ACT-01'],
-      blockedBy: ['BLK-03'],
-    },
-    {
-      id: 'ACT-06', label: 'Publish the practice narrative', phase: 'PH-1', day: 30,
-      status: 'in_progress',
-      detail: 'One page: what this practice is for, who it serves, and what it refuses. Everything external later hangs off it.',
-      owners: ['STK-MKT', 'STK-PRA'],
-      dependsOn: ['ACT-01', 'ACT-02'],
-    },
-
-    /* --- Phase 2: Focus & Prove --- */
-    {
-      id: 'ACT-07', label: 'Three co-created account plans', phase: 'PH-2', day: 45,
-      status: 'in_progress',
-      detail: 'Account plans written with the market leads and, for two of them, with the client in the room. Co-created, not presented.',
-      owners: ['STK-ML', 'STK-CLI'],
-      dependsOn: ['ACT-05'],
-      blockedBy: ['BLK-03'],
-      metrics: ['MET-PIPE'],
-    },
-    {
-      id: 'ACT-08', label: 'Stand up the asset library', phase: 'PH-2', day: 50,
-      status: 'at_risk',
-      detail: 'A single searchable home for credentials, case studies, method assets and reusable bid content — the thing that stops the same work being built twice.',
-      owners: ['STK-PRA'],
-      dependsOn: ['ACT-02', 'ACT-04'],
-      blockedBy: ['BLK-02', 'BLK-04'],
-      metrics: ['MET-REUSE'],
-    },
-    {
-      id: 'ACT-09', label: 'Rebuild the bid qualification gate', phase: 'PH-2', day: 42,
-      status: 'in_progress',
-      detail: 'A short, honest go/no-go with teeth. The fastest route to a better win rate is bidding less, not bidding harder.',
-      owners: ['STK-BID'],
-      dependsOn: ['ACT-03'],
-      metrics: ['MET-WIN'],
-    },
-    {
-      id: 'ACT-10', label: 'Run two pilot bids through the new process', phase: 'PH-2', day: 58,
-      status: 'not_started',
-      detail: 'Prove the gate and the library on live bids inside the 90 days. Two is enough to learn from and small enough to survive.',
-      owners: ['STK-BID', 'STK-PRA'],
-      dependsOn: ['ACT-08', 'ACT-09'],
-      metrics: ['MET-TTV', 'MET-WIN', 'MET-REUSE'],
-    },
-    {
-      id: 'ACT-11', label: 'Open recruitment for two senior hires', phase: 'PH-2', day: 40,
-      status: 'at_risk',
-      detail: 'Two senior hires against identified capability gaps. Clearance lead time means anything raised after day 40 lands outside the plan.',
-      owners: ['STK-HR', 'STK-GUY'],
-      dependsOn: ['ACT-04'],
-      blockedBy: ['BLK-01', 'BLK-05'],
-      metrics: ['MET-HEAD'],
-    },
-    {
-      id: 'ACT-12', label: 'Monthly practice forum', phase: 'PH-2', day: 35,
-      status: 'in_progress',
-      detail: 'A standing hour where the practice sees its own work. Cheap, and the main defence against the narrative staying a document.',
-      owners: ['STK-PRA'],
-      dependsOn: ['ACT-06'],
-    },
-    {
-      id: 'ACT-13', label: 'Client feedback loop on live accounts', phase: 'PH-2', day: 55,
-      status: 'not_started',
-      detail: 'Structured feedback on two live accounts, asked for early enough that we can still act on the answer.',
-      owners: ['STK-CLI', 'STK-ML'],
-      dependsOn: ['ACT-07'],
-      metrics: ['MET-NPS'],
-    },
-
-    /* --- Phase 3: Scale & Systemise --- */
-    {
-      id: 'ACT-14', label: 'Productise two repeatable offers', phase: 'PH-3', day: 75,
-      status: 'not_started',
-      detail: 'Take the two things we have now done more than once and turn them into offers with a method, a price and a set of assets behind them.',
-      owners: ['STK-PRA', 'STK-ML'],
-      dependsOn: ['ACT-08', 'ACT-10'],
-      metrics: ['MET-REUSE'],
-    },
-    {
-      id: 'ACT-15', label: 'Embed the qualification gate as standard', phase: 'PH-3', day: 70,
-      status: 'not_started',
-      detail: 'From pilot to default. The gate applies to every bid, with the exceptions named rather than assumed.',
-      owners: ['STK-BID'],
-      dependsOn: ['ACT-10'],
-      metrics: ['MET-WIN'],
-    },
-    {
-      id: 'ACT-16', label: 'Publish the 90-day scorecard', phase: 'PH-3', day: 85,
-      status: 'not_started',
-      detail: 'The baseline from day 21, re-run. Same measures, same method, no re-cutting of the numbers to flatter the result.',
-      owners: ['STK-EXEC', 'STK-GUY'],
-      dependsOn: ['ACT-03', 'ACT-09', 'ACT-13'],
-      metrics: ['MET-WIN', 'MET-PIPE', 'MET-UTIL'],
-    },
-    {
-      id: 'ACT-17', label: 'Onboard new hires against the plan', phase: 'PH-3', day: 80,
-      status: 'not_started',
-      detail: 'New starters join onto named accounts and named offers, not onto a general induction.',
-      owners: ['STK-HR', 'STK-PRA'],
-      dependsOn: ['ACT-11'],
-      blockedBy: ['BLK-01'],
-      metrics: ['MET-HEAD'],
-    },
-    {
-      id: 'ACT-18', label: 'Agree the year-one investment case', phase: 'PH-3', day: 90,
-      status: 'not_started',
-      detail: 'What the next twelve months costs and returns, argued from the scorecard rather than from ambition.',
-      owners: ['STK-GUY', 'STK-EXEC'],
-      dependsOn: ['ACT-04', 'ACT-16'],
-    },
-    {
-      id: 'ACT-19', label: 'Campaign around the practice narrative', phase: 'PH-3', day: 88,
-      status: 'not_started',
-      detail: 'External push, built on the productised offers so the campaign has something to sell rather than a position to state.',
-      owners: ['STK-MKT'],
-      dependsOn: ['ACT-06', 'ACT-14'],
-      blockedBy: ['BLK-06'],
-    },
-  ];
-
-  actions.forEach((a) => {
-    addNode({
-      id: a.id, type: 'action', label: a.label, detail: a.detail,
-      phase: a.phase, day: a.day, status: a.status,
-    });
-    addLink(a.id, a.phase, 'belongs_to');
-    (a.owners || []).forEach((o) => addLink(a.id, o, 'owned_by'));
-    (a.dependsOn || []).forEach((d) => addLink(a.id, d, 'depends_on'));
-    (a.blockedBy || []).forEach((b) => addLink(a.id, b, 'blocked_by'));
-    (a.metrics || []).forEach((m) => addLink(a.id, m, 'measured_by'));
-  });
-
-  /* ---------------- Quick wins — one per phase ---------------- */
-
-  const quickWins = [
-    {
-      id: 'QW-01', label: 'First co-created account plan', phase: 'PH-1', by: 'ACT-05', day: 28,
-      note: 'An account plan written with the client rather than for them — visible proof of the operating model inside the first month.',
-    },
-    {
-      id: 'QW-02', label: 'First bid drafted from reusable assets', phase: 'PH-2', by: 'ACT-10', day: 58,
-      note: 'A live bid where the first draft comes out of the library. The moment the reuse argument stops being theoretical.',
-    },
-    {
-      id: 'QW-03', label: 'First sale from a productised offer', phase: 'PH-3', by: 'ACT-14', day: 88,
-      note: 'Something sold from the productised set rather than assembled from scratch — the 90 days paying for itself.',
-    },
-  ];
-  quickWins.forEach((q) => {
-    addNode({ id: q.id, type: 'quickwin', label: q.label, note: q.note, phase: q.phase, day: q.day });
-    addLink(q.id, q.phase, 'belongs_to');
-    addLink(q.by, q.id, 'delivers');
-  });
-
-  /* ---------------- Phase-level headline metrics ---------------- */
-
-  [['PH-1', 'MET-PIPE'], ['PH-2', 'MET-WIN'], ['PH-3', 'MET-REUSE']]
-    .forEach(([p, m]) => addLink(p, m, 'measured_by'));
-
-  /* ---------------- Mutable status (the "living" bit) ---------------- */
+  // rgba from the phase hex, for chip and column tints.
+  function phaseTint(phaseId, alpha) {
+    const p = byId[phaseId];
+    if (!p || !p.color) return 'rgba(75, 105, 148, ' + alpha + ')';
+    const v = parseInt(p.color, 16);
+    return 'rgba(' + ((v >> 16) & 255) + ',' + ((v >> 8) & 255) + ',' + (v & 255) + ',' + alpha + ')';
+  }
 
   function cycleStatus(id) {
     const n = byId[id];
-    if (!n || n.type !== 'action') return null;
+    if (!n || LIVE_TYPES.indexOf(n.type) === -1) return null;
     n.status = STATUSES[(STATUSES.indexOf(n.status) + 1) % STATUSES.length];
     return n.status;
   }
 
   return {
-    title: '90-DAY PLAN',
-    subtitle: 'Practice leadership — the same engine, a different data model',
+    meta: SEED.meta,
+    title: SEED.meta.title,
+    owner: SEED.meta.owner,
+    context: SEED.meta.context,
     STATUSES,
     STATUS_LABEL,
+    LIVE_TYPES,
     phases,
+    phaseOrder,
+    phaseColour,
+    phaseTint,
     nodes,
     links,
     byId,
