@@ -91,10 +91,34 @@
 
   /* ---------------- Screen 2: the model ---------------- */
 
+  // The acquisition schema: how this dataset is drawn. The engine in
+  // graph.js knows nothing about requirements — see js/plan-main.js for the
+  // same engine driven by a completely different schema.
+  const ACQ_PALETTE = {
+    requirement: '#0090dc',
+    component: '#1e4479',
+    interface: '#1b9aaa',
+    risk: '#d55c17',
+    verification: '#2e9e4f',
+  };
+  const ACQ_RADII = {
+    requirement: 6, component: 13, interface: 5, risk: 8, verification: 4.5,
+  };
+  const ACQ_SCHEMA = {
+    colour: (d) => (d.type === 'risk' && d.severity === 'red' ? '#c0392b' : ACQ_PALETTE[d.type]),
+    radius: (d) => ACQ_RADII[d.type],
+    symbol: () => 'circle',
+    showLabel: (d) => d.type === 'component',
+    linkDistance: (l) => (l.kind === 'verifies' ? 28 : l.kind === 'interface' ? 60 : 48),
+  };
+
   function startGraph() {
     if (graphStarted) return;
     graphStarted = true;
-    Lattice.graph.init('#graph-svg', data, { onNodeClick: showNodeCard });
+    Lattice.graph.init('#graph-svg', data, {
+      schema: ACQ_SCHEMA,
+      onNodeClick: showNodeCard,
+    });
   }
 
   const panel = document.getElementById('side-panel');

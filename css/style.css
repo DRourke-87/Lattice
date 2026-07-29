@@ -429,6 +429,238 @@ body {
 .muted { color: var(--text-dim); }
 
 /* ============================================================
+   REUSE CASE — 90-day plan tracker (plan.html).
+   Additive only: nothing below changes the acquisition demo.
+   ============================================================ */
+
+.nav-link { text-decoration: none; display: inline-flex; align-items: center; }
+.nav-link:hover { color: var(--navy); border-color: var(--line); }
+
+/* Phase colours are data, not CSS — they come from the plan itself
+   (js/plan-data.js) and are applied inline, so re-colouring a phase in the
+   deck means editing one hex in one place. Only the gold used for quick
+   wins lives here, since it belongs to the node type rather than a phase. */
+:root { --gold: #b47b0a; }
+
+/* ---------------- Screen 1: the plan on a slide ---------------- */
+
+#screen-plan { overflow-y: auto; align-items: center; background: var(--bg-warm); }
+.plan-wrap { width: min(1120px, 94vw); padding: 34px 0 120px; }
+
+.plan-slide-head { text-align: center; margin-bottom: 26px; }
+.plan-eyebrow {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+}
+.plan-slide-title {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 34px; font-weight: 600; color: var(--navy);
+}
+.plan-slide-sub { color: var(--text-dim); font-size: 13.5px; margin-top: 8px; }
+
+.plan-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.plan-col {
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 20px 22px 22px;
+  box-shadow: 0 8px 30px rgba(30, 44, 70, .10);
+}
+.plan-col-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 14px; }
+.plan-col-days {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600;
+  color: var(--text-dim);
+}
+.plan-col-title {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 20px; font-weight: 600; color: var(--navy);
+}
+
+.plan-bullets { list-style: none; border-top: 1px solid var(--line); padding-top: 8px; }
+.plan-bullets li {
+  font-size: 13px; line-height: 1.5; color: var(--text);
+  padding: 6px 0 6px 16px; position: relative;
+}
+.plan-bullets li::before {
+  content: "—"; position: absolute; left: 0; color: var(--line-strong);
+}
+.plan-win {
+  margin-top: 14px; padding: 9px 12px; border-radius: 8px;
+  background: rgba(180, 123, 10, .10); border: 1px solid rgba(180, 123, 10, .32);
+  font-size: 12.5px; font-weight: 600; color: #7d5606;
+}
+.qw-mark { color: var(--gold); }
+.plan-metric { margin-top: 10px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+/* dissolve applies to the slide columns exactly as it does to the document */
+.plan-slide-head, #plan-columns > * {
+  transition: opacity .6s ease, transform .6s ease, filter .6s ease;
+}
+
+/* The CTA is sticky over three columns rather than one sheet of paper, so it
+   needs a ground of its own to stay readable when it overlaps a column. */
+#screen-plan .doc-cta {
+  padding: 26px 12px 8px;
+  background: linear-gradient(to top, var(--bg-warm) 58%, rgba(231, 222, 208, 0));
+}
+
+/* ---------------- Screen 2: reuse banner ---------------- */
+
+.reuse-banner {
+  flex: 0 0 auto;
+  margin: 12px 22px 0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  background: rgba(0, 144, 220, .06);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+.reuse-banner strong { color: var(--navy); }
+
+/* ---------------- Screen 2: status as motion, not colour ----------------
+   Order matters below: status opacity/glow rules come first so the generic
+   .node.dimmed rule further up the file still wins during a focused query. */
+
+.node-phase       { filter: drop-shadow(0 2px 4px rgba(30, 44, 70, .30)); }
+.node-stakeholder { filter: drop-shadow(0 1px 3px rgba(75, 105, 148, .45)); }
+.node-metric      { filter: none; opacity: .65; }
+.node-quick_win   { filter: drop-shadow(0 0 8px rgba(180, 123, 10, .65)); }
+.node-blocker     { filter: drop-shadow(0 0 6px rgba(192, 57, 43, .55)); }
+
+/* In progress — brighter glow to go with the active pulse. */
+.node.st-in_progress { filter: drop-shadow(0 0 9px rgba(0, 144, 220, .70)); }
+/* Complete — settled: dimmer, no urgency. */
+.node.st-complete    { filter: drop-shadow(0 0 3px rgba(46, 158, 79, .35)); opacity: .78; }
+/* At risk — red-tinted glow under a faster pulse; draws the eye. */
+.node.st-at_risk     { filter: drop-shadow(0 0 12px rgba(192, 57, 43, .85)); }
+/* Not started — static and quiet. */
+.node.st-not_started { filter: none; opacity: .45; }
+
+/* Focus/dim must still override status opacity — these come after the
+   status rules above precisely so they win at equal specificity. */
+.node.dimmed { opacity: .12; }
+.node.focused { opacity: 1; }
+
+/* Metric edges sit at the periphery: lighter, and read as outcome not work. */
+.link-measured_by { stroke: var(--line-strong); stroke-opacity: .28; stroke-dasharray: 2 8; }
+.link-belongs_to  { stroke: var(--line-strong); stroke-opacity: .40; }
+.link-depends_on  { stroke: var(--blue); }
+.link-owned_by    { stroke: var(--grey); stroke-opacity: .35; }
+.link-blocked_by  { stroke: var(--red); stroke-opacity: .70; }
+
+/* Labels: always-on for the orienting types, revealed on focus for the rest.
+   A dimmed label goes fully out unless it is an always-on one, which keeps its
+   faint ghost — otherwise a graph where every node carries a label leaves the
+   whole canvas covered in grey text during a focused query. */
+.node-label { opacity: 0; }
+.node-label.label-always { opacity: 1; }
+.node-label.focused { opacity: 1; }
+.node-label.dimmed { opacity: 0; }
+.node-label.label-always.dimmed { opacity: .1; }
+
+/* --- legend --- */
+.plan-legend { flex-wrap: wrap; gap: 8px 18px; max-width: calc(100% - 44px); }
+.legend-group { display: flex; gap: 14px; flex-wrap: wrap; }
+.legend-note { color: var(--text-dim); font-style: italic; opacity: .85; }
+.mark {
+  display: inline-block; width: 9px; height: 9px; margin-right: 6px;
+  background: var(--grey);
+}
+.mark-square   { background: var(--grey); }
+.mark-star     { background: var(--gold); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.mark-triangle { background: var(--red); clip-path: polygon(50% 0%, 100% 100%, 0% 100%); }
+.mark-diamond  { background: #8d9cb3; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+
+/* --- panel additions --- */
+
+.badge-complete   { background: rgba(46, 158, 79, .14); color: var(--green); }
+.badge-inprogress { background: rgba(0, 144, 220, .14); color: var(--blue); }
+.badge-atrisk     { background: rgba(192, 57, 43, .14); color: var(--red); }
+.badge-notstarted { background: rgba(75, 105, 148, .12); color: var(--text-dim); }
+.badge-high       { background: rgba(192, 57, 43, .14); color: var(--red); text-transform: capitalize; }
+.badge-medium     { background: rgba(213, 92, 23, .14); color: var(--amber); text-transform: capitalize; }
+
+/* Blocker severity, on the same two-step scale as the acquisition risks. */
+.risk-high   { background: rgba(192, 57, 43, .15); color: var(--red); }
+.risk-medium { background: rgba(213, 92, 23, .15); color: var(--amber); }
+
+.chip-phase { font-weight: 600; }
+.chip-stk   { background: rgba(75, 105, 148, .16); color: var(--navy); }
+.chip-win   { background: rgba(180, 123, 10, .14); color: #7d5606; font-weight: 600; }
+.chip-met   { background: rgba(46, 158, 79, .12); color: #24793c; }
+
+.card-area {
+  font-family: "Inter", sans-serif; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim);
+  margin-left: 6px;
+}
+
+.status-btn {
+  margin-top: 12px;
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+.status-btn:hover { color: var(--navy); border-color: var(--blue); background: rgba(0, 144, 220, .07); }
+
+/* ---------------- Screen 3: status board ---------------- */
+
+#screen-status { overflow-y: auto; }
+
+.dash-note {
+  font-size: 12px; line-height: 1.6; color: var(--text-dim);
+  background: rgba(0, 144, 220, .05);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+  margin: -14px 0 22px;
+}
+
+.phase-dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  margin-right: 8px; vertical-align: baseline;
+}
+
+/* The status legend doubles as the key to the graph's motion. */
+.legend-motion { display: block; font-size: 11px; color: var(--text-dim); opacity: .8; margin-left: 18px; }
+
+/* Two-segment bar: complete (solid) then in-progress (lighter), side by side.
+   Scoped to #phase-bars so the acquisition coverage bars are untouched. */
+#phase-bars .bar-track { display: flex; }
+#phase-bars .bar-fill { flex: 0 0 auto; border-radius: 99px 0 0 99px; }
+#phase-bars .bar-moving { background: var(--blue); opacity: .45; border-radius: 0 99px 99px 0; }
+
+.qw-list { list-style: none; }
+.qw-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; margin-bottom: 8px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg);
+}
+.qw-row .qw-mark { font-size: 18px; flex: 0 0 auto; }
+.qw-body { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; min-width: 0; }
+.qw-title { font-size: 13.5px; font-weight: 600; color: var(--navy); }
+.qw-meta { font-size: 11.5px; color: var(--text-dim); }
+/* Keep the short cells on one line — "In progress" breaking across two rows
+   makes the table look ragged when the wide columns are the ones that matter. */
+#blocked-body td:nth-child(3), #blocked-body td:last-child { white-space: nowrap; }
+
+.qw-complete { background: rgba(180, 123, 10, .10); border-color: rgba(180, 123, 10, .38); }
+.qw-not_started .qw-mark { color: var(--line-strong); }
+.qw-at_risk { border-color: rgba(192, 57, 43, .35); }
+
+/* ============================================================
    Mobile / narrow viewports.
    Purely additive — these rules are inert above 760px, so the
    desktop render is unchanged. Goal: keep every screen usable
@@ -455,12 +687,25 @@ body {
   .doc-subtitle { font-size: 15px; }
   .doc-table { font-size: 11px; }
   .doc-table th, .doc-table td { padding: 5px 7px; }
-  .doc-cta { bottom: 14px; }
+  /* The sticky CTA sits over body text on a narrow screen — give it a ground
+     so the line above the button stays readable. */
+  .doc-cta {
+    bottom: 14px;
+    padding: 26px 10px 6px;
+    background: linear-gradient(to top, var(--bg-warm) 58%, rgba(231, 222, 208, 0));
+  }
 
   /* Model screen: tighten the query controls, stack chips. */
   .query-bar { padding: 10px 14px 4px; }
   #query-input { font-size: 16px; }          /* 16px stops iOS zoom-on-focus */
-  .query-chips { padding: 6px 14px 8px; }
+  /* Wrapping chips eat the graph's height; scroll them in one row instead. */
+  .query-chips {
+    padding: 6px 14px 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .query-chip { flex: 0 0 auto; }
 
   /* Graph: keep it from collapsing, shrink the legend, and let
      the side panel cover the full width so cards are readable. */
@@ -484,6 +729,30 @@ body {
   .donut { flex-direction: column; align-items: flex-start; gap: 14px; }
   .dash-card-wide { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .gaps-table { min-width: 480px; }          /* preserve columns; container scrolls */
+
+  /* The cross-demo link drops to its own row rather than squeezing the
+     three numbered screens into a third of the width each. */
+  .nav { flex-wrap: wrap; }
+  .nav-link { flex: 1 1 100%; }
+
+  /* Stacked columns are already a scroll; a sticky CTA would just sit on
+     top of the next phase. Let it flow to the end instead. */
+  #screen-plan .doc-cta { position: static; background: none; padding: 22px 12px 0; }
+
+  /* Reuse case: the plan slide stacks, and the banner tightens up. */
+  .plan-wrap { width: 94vw; padding: 18px 0 90px; }
+  .plan-columns { grid-template-columns: 1fr; gap: 12px; }
+  .plan-col { padding: 16px 18px 18px; }
+  .plan-slide-title { font-size: 25px; }
+  .plan-slide-sub { font-size: 12.5px; }
+  .reuse-banner { margin: 10px 14px 0; padding: 8px 11px; font-size: 11.5px; line-height: 1.5; }
+  #screen-model .graph-stage { min-height: 48dvh; }
+  .plan-legend { max-width: none; font-size: 10.5px; gap: 6px 12px; }
+  .plan-legend .legend-group { gap: 10px; justify-content: center; }
+  .legend-note { display: none; }            /* the instruction is desktop-only anyway */
+  #screen-status .gaps-table { min-width: 620px; }
+  .qw-row { flex-wrap: wrap; gap: 8px 10px; }
+  .qw-body { flex: 1 1 100%; order: 2; }
 }
 
 /* Very small phones: one KPI per row reads better than a cramped 2-up. */

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LATTICE — 90-Day Plan Tracker (Reuse Case)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <span class="brand-name">LATTICE</span>
+      <span class="brand-tag">90-Day Plan — Data, Automation &amp; AI Practice</span>
+    </div>
+    <nav class="nav">
+      <button data-nav="plan" class="nav-btn">1 · Plan</button>
+      <button data-nav="model" class="nav-btn">2 · Model</button>
+      <button data-nav="status" class="nav-btn">3 · Status</button>
+      <a href="index.html" class="nav-btn nav-link">◂ Acquisition demo</a>
+    </nav>
+  </header>
+
+  <!-- ============ Screen 1: the plan as it appears on a slide ============ -->
+  <main id="screen-plan" class="screen">
+    <div class="plan-wrap">
+      <div class="plan-slide-head">
+        <p class="plan-eyebrow" id="plan-eyebrow"></p>
+        <h1 class="plan-slide-title" id="plan-title"></h1>
+        <p class="plan-slide-sub" id="plan-sub"></p>
+      </div>
+
+      <div id="plan-columns" class="plan-columns"></div>
+
+      <div class="doc-cta">
+        <p class="doc-cta-line">A column of bullets per phase. Not one of the dependencies, owners or blockers between them is visible here.</p>
+        <button id="btn-structure" class="primary-btn">Structure the plan ▸</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============ Screen 2: the living model ============ -->
+  <main id="screen-model" class="screen">
+    <div class="reuse-banner">
+      <strong>Same engine as the acquisition demo.</strong>
+      Same rendering code, same force simulation, same query interaction —
+      only the node/edge schema and the seed data changed. That is what
+      productisation actually looks like.
+    </div>
+
+    <div class="query-bar">
+      <input id="query-input" type="text"
+             placeholder="Ask the plan… e.g. “what's blocking the asset library?”"
+             autocomplete="off" />
+      <button id="btn-reset" class="ghost-btn">Reset view</button>
+    </div>
+    <div id="query-chips" class="query-chips"></div>
+
+    <div class="graph-stage">
+      <svg id="graph-svg"></svg>
+
+      <div class="graph-legend plan-legend">
+        <span class="legend-group" id="phase-legend"></span>
+        <span class="legend-group">
+          <span><i class="mark mark-square"></i>Stakeholder</span>
+          <span><i class="mark mark-star"></i>Quick win</span>
+          <span><i class="mark mark-triangle"></i>Blocker</span>
+          <span><i class="mark mark-diamond"></i>Metric</span>
+        </span>
+        <span class="legend-note">Motion = status · double-click an action to cycle it</span>
+      </div>
+
+      <aside id="side-panel" class="side-panel">
+        <div class="panel-head">
+          <span id="panel-title"></span>
+          <button id="panel-close" class="ghost-btn">✕</button>
+        </div>
+        <div id="panel-body" class="panel-body"></div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- ============ Screen 3: status board ============ -->
+  <main id="screen-status" class="screen">
+    <div class="dash-wrap">
+      <h2 class="dash-title">Plan status — one model, two views</h2>
+      <p class="dash-sub">Computed live from the same graph on screen 2. Cycle a status there and these numbers move with it.</p>
+      <p class="dash-note" id="plan-note"></p>
+
+      <div id="plan-kpis" class="kpi-tiles"></div>
+
+      <div class="dash-grid">
+        <section class="dash-card">
+          <h3>Actions by status</h3>
+          <div id="plan-donut" class="donut"></div>
+        </section>
+        <section class="dash-card">
+          <h3>Progress by phase</h3>
+          <div id="phase-bars" class="coverage-bars"></div>
+        </section>
+      </div>
+
+      <section class="dash-card dash-card-wide">
+        <h3>Quick wins</h3>
+        <ul id="quickwin-list" class="qw-list"></ul>
+      </section>
+
+      <section class="dash-card dash-card-wide">
+        <h3>Blocked actions — what stands between the plan and day 90</h3>
+        <table class="gaps-table">
+          <thead><tr><th>ID</th><th>Action</th><th>Phase</th><th>Owner</th><th>Blocked by</th><th>Status</th></tr></thead>
+          <tbody id="blocked-body"></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+
+  <script src="vendor/d3.v7.min.js"></script>
+  <script src="js/plan-data.js"></script>
+  <script src="js/plan-queries.js"></script>
+  <script src="js/graph.js"></script>
+  <script src="js/plan-dashboard.js"></script>
+  <script src="js/plan-main.js"></script>
+</body>
+</html>
